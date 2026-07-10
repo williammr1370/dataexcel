@@ -1,5 +1,5 @@
 // ===================================================================
-// DATALENS - APLICACIÓN COMPLETA
+// BROADCAST - APLICACIÓN COMPLETA
 // ===================================================================
 
 // ===================================================================
@@ -12,7 +12,7 @@ let currentMode = 'default';
 let currentBroadcastData = null;
 let dataPage = 0;
 const DATA_PAGE_SIZE = 50;
-const DB_NAME = 'DataLensDB';
+const DB_NAME = 'BroadcastDB';
 const DB_VERSION = 2;
 const STORE_NAME = 'analyses';
 const LOG_STORE_NAME = 'logs';
@@ -671,6 +671,55 @@ function analyzeBroadcastData(data) {
 
   console.log('✅ Análisis Broadcast completado');
 
+  // --- CÁLCULO DE ERRORES ---
+  console.log('\n📊 CALCULANDO ERRORES');
+  console.log('========================================');
+
+  // 1. Días sin tocadas
+  let diasSinTocadas = 0;
+  let diasConTocadas = 0;
+  if (mesReferencia !== null) {
+    for (let i = 1; i <= diasDelMes; i++) {
+      if (tocadasPorDia[i] > 0) {
+        diasConTocadas++;
+      } else {
+        diasSinTocadas++;
+      }
+    }
+    console.log(`📊 Días sin tocadas: ${diasSinTocadas} de ${diasDelMes}`);
+  }
+
+  // 2. Celdas vacías en Título pero con Label no vacío
+  let erroresLabelSinTitulo = 0;
+  let labelCol = null;
+
+  // Buscar columna de Sello (posibles nombres)
+  const posiblesLabel = ['Label', 'Sello', 'Labels', 'Sellos', 'label', 'sello'];
+  labelCol = colNames.find(c => posiblesLabel.includes(c) || /label|sello|tag/i.test(c));
+
+  if (labelCol) {
+    console.log(`📊 Columna de Label encontrada: ${labelCol}`);
+    
+    data.forEach(row => {
+      const titulo = row[tituloCol];
+      const label = row[labelCol];
+      
+      // Verificar si Título está vacío/nulo
+      const tituloVacio = titulo === null || titulo === undefined || String(titulo).trim() === '';
+      // Verificar si Label NO está vacío
+      const labelNoVacio = label !== null && label !== undefined && String(label).trim() !== '';
+      
+      if (tituloVacio && labelNoVacio) {
+        erroresLabelSinTitulo++;
+      }
+    });
+    console.log(`📊 Celdas con Label pero sin Título: ${erroresLabelSinTitulo}`);
+  } else {
+    console.warn('⚠️ No se encontró columna de Label para calcular errores');
+  }
+
+  console.log('========================================');
+
   return {
     tiempoEmision,
     tiempoAnalizado,
@@ -687,6 +736,9 @@ function analyzeBroadcastData(data) {
     diasDelMes: diasDelMes || 31,
     mesReferencia: mesReferencia,
     anioReferencia: anioReferencia,
+    diasSinTocadas: diasSinTocadas,
+    erroresLabelSinTitulo: erroresLabelSinTitulo,
+    labelCol: labelCol,
     hasData: true
   };
 }
@@ -934,11 +986,46 @@ function renderBroadcastOverview() {
     return;
   }
 
+  // --- CARDS DE ERRORES ---
+  const errorCards = document.getElementById('error-cards');
+  if (errorCards) {
+    const errorStats = [
+      { icon: 'fa-clock', label: 'Tiempo de Emisión', value: formatDuration(bd.tiempoEmision), color: '#60a5fa' },
+      { 
+        icon: 'fa-calendar-times', 
+        label: 'Días sin tocadas', 
+        value: `${bd.diasSinTocadas || 0} de ${bd.diasDelMes || 31}`,
+        color: bd.diasSinTocadas > 0 ? 'var(--danger)' : 'var(--accent)',
+        bgColor: bd.diasSinTocadas > 0 ? 'rgba(248,113,113,0.15)' : 'rgba(52,211,153,0.15)'
+      },
+      { 
+        icon: 'fa-exclamation-triangle', 
+        label: 'Label sin Título', 
+        value: (bd.erroresLabelSinTitulo || 0).toLocaleString('es'),
+        color: (bd.erroresLabelSinTitulo || 0) > 0 ? 'var(--warning)' : 'var(--accent)',
+        bgColor: (bd.erroresLabelSinTitulo || 0) > 0 ? 'rgba(251,191,36,0.15)' : 'rgba(52,211,153,0.15)'
+      }
+    ];
+
+    errorCards.innerHTML = errorStats.map(c => `
+      <div class="card stat-card" style="padding:20px; border-left: 3px solid ${c.color};">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="width:36px; height:36px; border-radius:8px; background:${c.bgColor}; display:flex; align-items:center; justify-content:center;">
+            <i class="fas ${c.icon}" style="color:${c.color}; font-size:14px;"></i>
+          </div>
+          <div>
+            <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;">${c.label}</div>
+            <div class="mono" style="font-size:20px; font-weight:600; color:${c.color};">${c.value}</div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
   const statCards = document.getElementById('stat-cards');
   if (!statCards) return;
   
   const stats = [
-    { icon: 'fa-clock', label: 'Tiempo de Emisión', value: formatDuration(bd.tiempoEmision), color: '#60a5fa' },
     { icon: 'fa-chart-line', label: 'Tiempo Analizado', value: formatDuration(bd.tiempoAnalizado), color: 'var(--accent)' },
     { icon: 'fa-music', label: 'Música y Música+Palabra', value: formatDuration(bd.sumaMusica), color: '#6ee7b7' },
     { icon: 'fa-headphones', label: 'Música Identificada', value: formatDuration(bd.musicaIdentificada), color: '#93c5fd' },
@@ -1727,7 +1814,7 @@ function renderLogsView() {
 // 13. INICIALIZACIÓN
 // ===================================================================
 (async function init() {
-  console.log('🚀 Inicializando DataLens...');
+  console.log('🚀 Inicializando Broadcast...');
   try {
     await openDB();
     await updateDBStats();
@@ -1735,7 +1822,7 @@ function renderLogsView() {
     loadQuickHistory();
     const descEl = document.getElementById('mode-description');
     if (descEl) descEl.textContent = 'Análisis estándar con estadísticas generales';
-    console.log('✅ DataLens listo');
+    console.log('✅ Broadcast listo');
   } catch (error) {
     console.error('Error en inicialización:', error);
   }
