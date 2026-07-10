@@ -1000,7 +1000,7 @@ function renderBroadcastOverview() {
       },
       { 
         icon: 'fa-exclamation-triangle', 
-        label: 'Label sin Título', 
+        label: 'Track sin Título', 
         value: (bd.erroresLabelSinTitulo || 0).toLocaleString('es'),
         color: (bd.erroresLabelSinTitulo || 0) > 0 ? 'var(--warning)' : 'var(--accent)',
         bgColor: (bd.erroresLabelSinTitulo || 0) > 0 ? 'rgba(251,191,36,0.15)' : 'rgba(52,211,153,0.15)'
