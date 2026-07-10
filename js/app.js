@@ -1714,8 +1714,8 @@ function setMode(mode) {
   
   const descriptions = {
     default: 'Análisis estándar con estadísticas generales',
-    broadcast: 'Análisis especializado para datos de emisiones de radio',
-    hybrid: 'Análisis para datos Hybrid usando UTC Duration y bmatid'
+    broadcast: 'Análisis para datos de emisiones de radios de España ',
+    hybrid: 'Análisis para datos de archivos Hybrid'
   };
   const descEl = document.getElementById('mode-description');
   if (descEl) descEl.textContent = descriptions[mode] || '';
