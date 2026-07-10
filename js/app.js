@@ -252,7 +252,52 @@ function parseDuration(value) {
 }
 
 // ===================================================================
-// 5. ANÁLISIS DEFAULT
+// 5. PARSEAR FECHA DD/MM/YY
+// ===================================================================
+function parseFechaDDMMYY(fechaStr) {
+  if (!fechaStr) return null;
+  if (fechaStr instanceof Date) return fechaStr;
+  
+  if (typeof fechaStr === 'string') {
+    let str = fechaStr.trim();
+    if (str === '') return null;
+    
+    let match = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+    if (match) {
+      let dia = parseInt(match[1]);
+      let mes = parseInt(match[2]) - 1;
+      let anio = parseInt(match[3]);
+      if (anio < 100) anio += 2000;
+      const fecha = new Date(anio, mes, dia);
+      if (!isNaN(fecha.getTime())) return fecha;
+    }
+    
+    match = str.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
+    if (match) {
+      let dia = parseInt(match[1]);
+      let mes = parseInt(match[2]) - 1;
+      let anio = parseInt(match[3]);
+      if (anio < 100) anio += 2000;
+      const fecha = new Date(anio, mes, dia);
+      if (!isNaN(fecha.getTime())) return fecha;
+    }
+    
+    const fecha = new Date(str);
+    if (!isNaN(fecha.getTime())) return fecha;
+    return null;
+  }
+  
+  if (typeof fechaStr === 'number') {
+    const fecha = new Date(fechaStr);
+    if (!isNaN(fecha.getTime())) return fecha;
+    return null;
+  }
+  
+  return null;
+}
+
+// ===================================================================
+// 6. ANÁLISIS DEFAULT
 // ===================================================================
 function analyzeData(data) {
   const columns = Object.keys(data[0]);
@@ -367,56 +412,7 @@ function analyzeColumn(values, name) {
 }
 
 // ===================================================================
-// FUNCIÓN PARA PARSEAR FECHA EN FORMATO 'DD/MM/YY'
-// ===================================================================
-function parseFechaDDMMYY(fechaStr) {
-  if (!fechaStr) return null;
-  if (fechaStr instanceof Date) return fechaStr;
-  
-  if (typeof fechaStr === 'string') {
-    let str = fechaStr.trim();
-    if (str === '') return null;
-    
-    // Formato: DD/MM/YY o DD/MM/YYYY
-    let match = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
-    if (match) {
-      let dia = parseInt(match[1]);
-      let mes = parseInt(match[2]) - 1;
-      let anio = parseInt(match[3]);
-      if (anio < 100) anio += 2000;
-      const fecha = new Date(anio, mes, dia);
-      if (!isNaN(fecha.getTime())) return fecha;
-    }
-    
-    // Formato: DD-MM-YY o DD-MM-YYYY
-    match = str.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
-    if (match) {
-      let dia = parseInt(match[1]);
-      let mes = parseInt(match[2]) - 1;
-      let anio = parseInt(match[3]);
-      if (anio < 100) anio += 2000;
-      const fecha = new Date(anio, mes, dia);
-      if (!isNaN(fecha.getTime())) return fecha;
-    }
-    
-    // Intentar con Date nativo
-    const fecha = new Date(str);
-    if (!isNaN(fecha.getTime())) return fecha;
-    
-    return null;
-  }
-  
-  if (typeof fechaStr === 'number') {
-    const fecha = new Date(fechaStr);
-    if (!isNaN(fecha.getTime())) return fecha;
-    return null;
-  }
-  
-  return null;
-}
-
-// ===================================================================
-// 6. ANÁLISIS BROADCAST - CORREGIDO (con parseo de fecha DD/MM/YY)
+// 7. ANÁLISIS BROADCAST
 // ===================================================================
 function analyzeBroadcastData(data) {
   console.log('🔍 Iniciando análisis Broadcast...');
@@ -427,7 +423,6 @@ function analyzeBroadcastData(data) {
   const colNames = Object.keys(data[0]);
   console.log('📋 Columnas disponibles:', colNames);
   
-  // Buscar columna de duración
   let duracionCol = colNames.find(c => /^duracion\s*\(s\)$/i.test(c) || /^duracion_s$/i.test(c) || /^duracionsegundos$/i.test(c));
   if (!duracionCol) {
     duracionCol = colNames.find(c => /^duracion$/i.test(c) || /^duration$/i.test(c));
@@ -443,7 +438,6 @@ function analyzeBroadcastData(data) {
   
   console.log('✅ Columna de duración:', duracionCol);
   
-  // Buscar columna de título (EXACTA)
   let tituloCol = colNames.find(c => c === 'Titulo' || c === 'Título');
   if (!tituloCol) {
     tituloCol = colNames.find(c => c.toLowerCase() === 'titulo' || c.toLowerCase() === 'título');
@@ -457,7 +451,6 @@ function analyzeBroadcastData(data) {
   
   console.log('✅ Columna de título:', tituloCol || '❌ No encontrada');
   
-  // Detectar otras columnas
   const fechaCol = colNames.find(c => /fecha|date|dia/i.test(c));
   const msCol = colNames.find(c => /m\/s|ms|tipo_audio/i.test(c) && !/tipo.*musica/i.test(c));
   const tipoMusicaCol = colNames.find(c => /tipo.*musica|musica.*tipo|genero|género|estilo|tipo_musica|music_type|genre/i.test(c));
@@ -467,25 +460,307 @@ function analyzeBroadcastData(data) {
   console.log('  Título:', tituloCol || '❌ No encontrada');
   console.log('  Fecha:', fechaCol || '❌ No encontrada');
   console.log('  M/S:', msCol || '❌ No encontrada');
-  console.log('  Tipo Música:', tipoMusicaCol || '❌ No encontrada');
 
-  // Función para verificar si el título es nulo
   const isTituloNulo = (row) => {
     if (!tituloCol) return true;
     const titulo = row[tituloCol];
     if (titulo === null || titulo === undefined) return true;
     if (typeof titulo === 'string' && titulo.trim() === '') return true;
     if (typeof titulo === 'string' && titulo.trim().toLowerCase() === 'null') return true;
-    if (typeof titulo === 'string' && titulo.trim().toLowerCase() === 'nulo') return true;
     return false;
   };
 
-  // Función para verificar si un valor está vacío
   const isEmpty = (v) => {
     return v === null || v === undefined || String(v).trim() === '';
   };
 
-  // Función para obtener duración
+  const getDuracion = (row) => {
+    const val = row[duracionCol];
+    return parseDuration(val);
+  };
+
+  let validCount = 0, invalidCount = 0;
+  data.forEach(row => {
+    const dur = getDuracion(row);
+    if (dur !== null) validCount++;
+    else invalidCount++;
+  });
+  
+  console.log(`📊 Valores de duración válidos: ${validCount}, inválidos: ${invalidCount}`);
+  
+  if (validCount === 0) {
+    console.error('❌ No hay valores de duración válidos');
+    return null;
+  }
+
+  const sumDuraciones = (filterFn, filterName = '') => {
+    let sum = 0, count = 0;
+    data.forEach((row) => {
+      const dur = getDuracion(row);
+      if (dur !== null) {
+        const shouldInclude = !filterFn || filterFn(row);
+        if (shouldInclude) {
+          sum += dur;
+          count++;
+        }
+      }
+    });
+    console.log(`  📊 ${filterName}: ${count} registros, suma: ${sum.toLocaleString('es')} s`);
+    return { sum, count };
+  };
+
+  let tiempoEmision = 0;
+  let mesReferencia = null;
+  let anioReferencia = null;
+  let diasDelMes = 0;
+
+  if (fechaCol) {
+    console.log('📊 Buscando fecha de referencia...');
+    for (let i = 0; i < data.length; i++) {
+      const fechaVal = data[i][fechaCol];
+      const fecha = parseFechaDDMMYY(fechaVal);
+      if (fecha) {
+        mesReferencia = fecha.getMonth();
+        anioReferencia = fecha.getFullYear();
+        diasDelMes = new Date(anioReferencia, mesReferencia + 1, 0).getDate();
+        tiempoEmision = diasDelMes * 24 * 3600;
+        console.log(`📅 Mes de referencia: ${mesReferencia + 1}, Año: ${anioReferencia}, Días: ${diasDelMes}`);
+        console.log('📅 Tiempo de emisión:', tiempoEmision.toLocaleString('es'), 's');
+        break;
+      }
+    }
+  }
+
+  console.log('\n📊 CALCULANDO INDICADORES');
+  console.log('========================================');
+  
+  console.log('📊 1. Tiempo Analizado:');
+  const { sum: tiempoAnalizado, count: countAnalizado } = sumDuraciones(null, 'Tiempo Analizado');
+
+  console.log('📊 2. Música y Música+Palabra:');
+  const { sum: sumaMusica, count: countMusica } = sumDuraciones((row) => {
+    if (!msCol) return false;
+    const val = row[msCol];
+    if (isEmpty(val)) return false;
+    const str = String(val).toLowerCase().trim();
+    return str === 'musica' || str === 'musica y palabra' || str === 'música' || str === 'música y palabra';
+  }, 'Música y Música+Palabra');
+
+  console.log('📊 3. Música Identificada:');
+  const { sum: musicaIdentificada, count: countIdentificada } = sumDuraciones((row) => {
+    if (!tituloCol) return false;
+    return !isTituloNulo(row);
+  }, 'Música Identificada');
+
+  console.log('📊 4. Música Comercial:');
+  const { sum: musicaComercial, count: countComercial } = sumDuraciones((row) => {
+    if (!tipoMusicaCol) return false;
+    const val = row[tipoMusicaCol];
+    if (isEmpty(val)) return false;
+    const str = String(val).toLowerCase().trim();
+    return str === 'musica comercial' || str === 'música comercial';
+  }, 'Música Comercial');
+
+  console.log('📊 5. FCFs:');
+  const { sum: fcfSum, count: countFcf } = sumDuraciones((row) => {
+    if (!tipoMusicaCol) return false;
+    const val = row[tipoMusicaCol];
+    if (isEmpty(val)) return false;
+    return String(val).toUpperCase().trim() === 'FCF';
+  }, 'FCFs');
+
+  console.log('========================================');
+
+  const pctAnalizado = tiempoEmision > 0 ? (tiempoAnalizado / tiempoEmision) * 100 : 0;
+  const pctMusica = tiempoAnalizado > 0 ? (sumaMusica / tiempoAnalizado) * 100 : 0;
+  const pctMusicaIdentificada = tiempoAnalizado > 0 ? (musicaIdentificada / tiempoAnalizado) * 100 : 0;
+  const pctMusicaComercial = tiempoAnalizado > 0 ? (musicaComercial / tiempoAnalizado) * 100 : 0;
+  const pctFCF = tiempoAnalizado > 0 ? (fcfSum / tiempoAnalizado) * 100 : 0;
+
+  console.log('📊 PORCENTAJES:');
+  console.log(`  % Analizado: ${pctAnalizado.toFixed(2)}%`);
+  console.log(`  % Música: ${pctMusica.toFixed(2)}%`);
+  console.log(`  % Música Identificada: ${pctMusicaIdentificada.toFixed(2)}%`);
+
+  const tocadasPorDia = {};
+  for (let i = 1; i <= 31; i++) {
+    tocadasPorDia[i] = 0;
+  }
+
+  if (fechaCol && tituloCol && mesReferencia !== null) {
+    console.log('📊 Contando tocadas por día...');
+    let totalTocadas = 0;
+    
+    data.forEach(row => {
+      if (isTituloNulo(row)) return;
+      
+      const fechaVal = row[fechaCol];
+      const fecha = parseFechaDDMMYY(fechaVal);
+      
+      if (fecha && fecha.getMonth() === mesReferencia && fecha.getFullYear() === anioReferencia) {
+        const dia = fecha.getDate();
+        tocadasPorDia[dia] = (tocadasPorDia[dia] || 0) + 1;
+        totalTocadas++;
+      }
+    });
+    
+    console.log(`📊 Total tocadas: ${totalTocadas}`);
+    console.log('📊 Tocadas por día:', tocadasPorDia);
+  }
+
+  console.log('\n📊 CALCULANDO ERRORES');
+  
+  let diasSinTocadas = 0;
+  if (mesReferencia !== null) {
+    for (let i = 1; i <= diasDelMes; i++) {
+      if (!tocadasPorDia[i] || tocadasPorDia[i] === 0) {
+        diasSinTocadas++;
+      }
+    }
+    console.log(`📊 Días sin tocadas: ${diasSinTocadas} de ${diasDelMes}`);
+  }
+
+  let erroresLabelSinTitulo = 0;
+  let labelCol = null;
+
+  const posiblesLabel = ['Label', 'Sello', 'Labels', 'Sellos', 'label', 'sello'];
+  labelCol = colNames.find(c => posiblesLabel.includes(c) || /label|sello|tag/i.test(c));
+
+  if (labelCol && tituloCol) {
+    console.log(`📊 Columna de Label encontrada: ${labelCol}`);
+    data.forEach(row => {
+      const titulo = row[tituloCol];
+      const label = row[labelCol];
+      const tituloVacio = titulo === null || titulo === undefined || String(titulo).trim() === '';
+      const labelNoVacio = label !== null && label !== undefined && String(label).trim() !== '';
+      if (tituloVacio && labelNoVacio) {
+        erroresLabelSinTitulo++;
+      }
+    });
+    console.log(`📊 Celdas con Label pero sin Título: ${erroresLabelSinTitulo}`);
+  }
+
+  console.log('✅ Análisis Broadcast completado');
+
+  return {
+    tiempoEmision,
+    tiempoAnalizado,
+    sumaMusica,
+    musicaIdentificada,
+    musicaComercial,
+    fcfSum,
+    pctAnalizado,
+    pctMusica,
+    pctMusicaIdentificada,
+    pctMusicaComercial,
+    pctFCF,
+    tocadasPorDia: tocadasPorDia,
+    diasDelMes: diasDelMes || 31,
+    mesReferencia: mesReferencia,
+    anioReferencia: anioReferencia,
+    diasSinTocadas: diasSinTocadas,
+    erroresLabelSinTitulo: erroresLabelSinTitulo,
+    hasData: true
+  };
+}
+
+// ===================================================================
+// 8. ANÁLISIS HYBRID (ACTUALIZADO CON INDICADORES ESPECÍFICOS)
+// ===================================================================
+function analyzeHybridData(data) {
+  console.log('🔍 Iniciando análisis Hybrid...');
+  console.log('📊 Total de filas:', data.length);
+  
+  if (data.length === 0) return null;
+  
+  const colNames = Object.keys(data[0]);
+  console.log('📋 Columnas disponibles:', colNames);
+  
+  // Buscar columna de duración - "UTC Duration (s)"
+  let duracionCol = colNames.find(c => /^utc duration\s*\(s\)$/i.test(c) || /^utc_duration_s$/i.test(c) || /^utcduration$/i.test(c));
+  if (!duracionCol) {
+    duracionCol = colNames.find(c => /duration.*s|dur.*s/i.test(c));
+  }
+  if (!duracionCol) {
+    duracionCol = colNames.find(c => /duration|dur/i.test(c));
+  }
+  
+  if (!duracionCol) {
+    console.error('❌ No se encontró columna de duración (UTC Duration)');
+    return null;
+  }
+  
+  console.log('✅ Columna de duración:', duracionCol);
+  
+  // Buscar columna bmatid
+  let bmatidCol = colNames.find(c => c === 'bmatid' || c === 'BMatID' || c === 'bmat_id');
+  if (!bmatidCol) {
+    bmatidCol = colNames.find(c => /bmatid|bmat_id|bmat/i.test(c));
+  }
+  console.log('✅ Columna bmatid:', bmatidCol || '❌ No encontrada');
+  
+  // Buscar columna Track
+  let trackCol = colNames.find(c => c === 'Track' || c === 'track' || c === 'Tracks' || c === 'tracks');
+  if (!trackCol) {
+    trackCol = colNames.find(c => /track|tema|canción|cancion/i.test(c));
+  }
+  console.log('✅ Columna Track:', trackCol || '❌ No encontrada');
+  
+  // Buscar columna M/S
+  let msCol = colNames.find(c => c === 'M/S' || c === 'm/s' || c === 'MS' || c === 'ms');
+  if (!msCol) {
+    msCol = colNames.find(c => /m\/s|ms|tipo_audio|audio_type/i.test(c));
+  }
+  console.log('✅ Columna M/S:', msCol || '❌ No encontrada');
+  
+  // Buscar columna de fecha - ESTRICTAMENTE 'Date'
+  let fechaCol = colNames.find(c => c === 'Date' || c === 'DATE' || c === 'date');
+  if (!fechaCol) {
+    fechaCol = colNames.find(c => /date/i.test(c) && !/epg/i.test(c));
+  }
+  console.log('✅ Columna Date (usando):', fechaCol || '❌ No encontrada');
+  
+  // Detectar otras columnas
+  const tipoCol = colNames.find(c => /tipo|type|category|genre|genero|género/i.test(c));
+
+  console.log('🔑 Columnas identificadas:');
+  console.log('  Duración (UTC):', duracionCol);
+  console.log('  bmatid:', bmatidCol || '❌ No encontrada');
+  console.log('  Track:', trackCol || '❌ No encontrada');
+  console.log('  M/S:', msCol || '❌ No encontrada');
+  console.log('  Date (ESTRICTO):', fechaCol || '❌ No encontrada');
+
+  // Función para verificar si bmatid es nulo
+  const isBmatidNulo = (row) => {
+    if (!bmatidCol) return true;
+    const bmatid = row[bmatidCol];
+    if (bmatid === null || bmatid === undefined) return true;
+    if (typeof bmatid === 'string' && bmatid.trim() === '') return true;
+    if (typeof bmatid === 'string' && bmatid.trim().toLowerCase() === 'null') return true;
+    return false;
+  };
+
+  // Función para verificar si Track está vacío
+  const isTrackVacio = (row) => {
+    if (!trackCol) return true;
+    const track = row[trackCol];
+    if (track === null || track === undefined) return true;
+    if (typeof track === 'string' && track.trim() === '') return true;
+    return false;
+  };
+
+  // Función para obtener el valor de M/S
+  const getMsValue = (row) => {
+    if (!msCol) return '';
+    const val = row[msCol];
+    if (val === null || val === undefined) return '';
+    return String(val).toLowerCase().trim();
+  };
+
+  const isEmpty = (v) => {
+    return v === null || v === undefined || String(v).trim() === '';
+  };
+
   const getDuracion = (row) => {
     const val = row[duracionCol];
     return parseDuration(val);
@@ -523,15 +798,14 @@ function analyzeBroadcastData(data) {
     return { sum, count };
   };
 
-  // Tiempo de emisión - usar la primera fecha válida
+  // Tiempo de emisión - USAR ESTRICTAMENTE 'Date'
   let tiempoEmision = 0;
   let mesReferencia = null;
   let anioReferencia = null;
   let diasDelMes = 0;
 
   if (fechaCol) {
-    console.log('📊 Buscando fecha de referencia para el mes...');
-    
+    console.log('📊 Buscando fecha de referencia en columna "Date"...');
     for (let i = 0; i < data.length; i++) {
       const fechaVal = data[i][fechaCol];
       const fecha = parseFechaDDMMYY(fechaVal);
@@ -547,207 +821,432 @@ function analyzeBroadcastData(data) {
     }
   }
 
-  // Calcular indicadores
-  console.log('\n📊 CALCULANDO INDICADORES');
+  console.log('\n📊 CALCULANDO INDICADORES (HYBRID)');
   console.log('========================================');
   
-  // 1. Tiempo Analizado
-  console.log('📊 1. Tiempo Analizado:');
-  const { sum: tiempoAnalizado, count: countAnalizado } = sumDuraciones(null, 'Tiempo Analizado');
+  // 1. Tiempo Analizado - SUMAR UTC Duration (s) SI M/S NO ES NULO O VACÍO
+  console.log('📊 1. Tiempo Analizado (M/S NO nulo o vacío):');
+  const { sum: tiempoAnalizado, count: countAnalizado } = sumDuraciones((row) => {
+    const ms = getMsValue(row);
+    return ms !== '';
+  }, 'Tiempo Analizado (M/S NO nulo o vacío)');
 
-  // 2. Música y Música+Palabra
-  console.log('📊 2. Música y Música+Palabra:');
-  const { sum: sumaMusica, count: countMusica } = sumDuraciones((row) => {
-    if (!msCol) return false;
-    const val = row[msCol];
-    if (isEmpty(val)) return false;
-    const str = String(val).toLowerCase().trim();
-    return str === 'musica' || str === 'musica y palabra' || str === 'música' || str === 'música y palabra';
-  }, 'Música y Música+Palabra');
+  // 2. Música Analizada - M/S = music O bgmusic
+  console.log('📊 2. Música Analizada (M/S = music o bgmusic):');
+  const { sum: musicaAnalizada, count: countMusicaAnalizada } = sumDuraciones((row) => {
+    const ms = getMsValue(row);
+    return ms === 'music' || ms === 'bgmusic' || ms === 'música' || ms === 'bgmúsica';
+  }, 'Música Analizada');
 
-  // 3. Música Identificada
-  console.log('📊 3. Música Identificada:');
+  // 3. Música Analizada en primer plano - M/S = music
+  console.log('📊 3. Música Analizada en primer plano (M/S = music):');
+  const { sum: musicaPrimerPlano, count: countMusicaPrimerPlano } = sumDuraciones((row) => {
+    const ms = getMsValue(row);
+    return ms === 'music' || ms === 'música';
+  }, 'Música Analizada primer plano');
+
+  // 4. Música Analizada en background - M/S = bgmusic
+  console.log('📊 4. Música Analizada en background (M/S = bgmusic):');
+  const { sum: musicaBackground, count: countMusicaBackground } = sumDuraciones((row) => {
+    const ms = getMsValue(row);
+    return ms === 'bgmusic' || ms === 'bgmúsica';
+  }, 'Música Analizada background');
+
+  // 5. Música Identificada - bmatid NO nulo
+  console.log('📊 5. Música Identificada (bmatid NO nulo):');
   const { sum: musicaIdentificada, count: countIdentificada } = sumDuraciones((row) => {
-    if (!tituloCol) return false;
-    return !isTituloNulo(row);
+    if (!bmatidCol) return false;
+    return !isBmatidNulo(row);
   }, 'Música Identificada');
-
-  // 4. Música Comercial
-  console.log('📊 4. Música Comercial:');
-  const { sum: musicaComercial, count: countComercial } = sumDuraciones((row) => {
-    if (!tipoMusicaCol) return false;
-    const val = row[tipoMusicaCol];
-    if (isEmpty(val)) return false;
-    const str = String(val).toLowerCase().trim();
-    return str === 'musica comercial' || str === 'música comercial';
-  }, 'Música Comercial');
-
-  // 5. FCFs
-  console.log('📊 5. FCFs:');
-  const { sum: fcfSum, count: countFcf } = sumDuraciones((row) => {
-    if (!tipoMusicaCol) return false;
-    const val = row[tipoMusicaCol];
-    if (isEmpty(val)) return false;
-    return String(val).toUpperCase().trim() === 'FCF';
-  }, 'FCFs');
 
   console.log('========================================');
 
-  // Porcentajes
-  const pctAnalizado = tiempoEmision > 0 ? (tiempoAnalizado / tiempoEmision) * 100 : 0;
-  const pctMusica = tiempoAnalizado > 0 ? (sumaMusica / tiempoAnalizado) * 100 : 0;
+  // Porcentajes (sobre Tiempo Analizado)
+  const pctMusicaAnalizada = tiempoAnalizado > 0 ? (musicaAnalizada / tiempoAnalizado) * 100 : 0;
+  const pctMusicaPrimerPlano = tiempoAnalizado > 0 ? (musicaPrimerPlano / tiempoAnalizado) * 100 : 0;
+  const pctMusicaBackground = tiempoAnalizado > 0 ? (musicaBackground / tiempoAnalizado) * 100 : 0;
   const pctMusicaIdentificada = tiempoAnalizado > 0 ? (musicaIdentificada / tiempoAnalizado) * 100 : 0;
-  const pctMusicaComercial = tiempoAnalizado > 0 ? (musicaComercial / tiempoAnalizado) * 100 : 0;
-  const pctFCF = tiempoAnalizado > 0 ? (fcfSum / tiempoAnalizado) * 100 : 0;
+  const pctAnalizado = tiempoEmision > 0 ? (tiempoAnalizado / tiempoEmision) * 100 : 0;
 
   console.log('📊 PORCENTAJES:');
   console.log(`  % Analizado: ${pctAnalizado.toFixed(2)}%`);
-  console.log(`  % Música: ${pctMusica.toFixed(2)}%`);
+  console.log(`  % Música Analizada: ${pctMusicaAnalizada.toFixed(2)}%`);
+  console.log(`  % Música Primer Plano: ${pctMusicaPrimerPlano.toFixed(2)}%`);
+  console.log(`  % Música Background: ${pctMusicaBackground.toFixed(2)}%`);
   console.log(`  % Música Identificada: ${pctMusicaIdentificada.toFixed(2)}%`);
-  console.log(`  % Música Comercial: ${pctMusicaComercial.toFixed(2)}%`);
-  console.log(`  % FCFs: ${pctFCF.toFixed(2)}%`);
 
-  // --- TOCADAS POR DÍA DEL MES ---
+  // --- TOCADAS POR DÍA ---
   console.log('\n📅 Calculando tocadas por día del mes...');
 
-  // Inicializar el conteo de tocadas por día (1 a 31)
   const tocadasPorDia = {};
   for (let i = 1; i <= 31; i++) {
     tocadasPorDia[i] = 0;
   }
 
-  // Contar tocadas por día del mes
-  if (fechaCol && tituloCol && mesReferencia !== null) {
-    console.log('📊 Contando tocadas por día...');
+  if (fechaCol && bmatidCol && mesReferencia !== null) {
+    console.log('📊 Contando tocadas por día (bmatid NO nulo)...');
     let totalTocadas = 0;
-    let filasConFecha = 0;
-    let filasSinFecha = 0;
-    let filasSinTitulo = 0;
     
     data.forEach(row => {
-      // Verificar que el título no sea nulo
-      if (isTituloNulo(row)) {
-        filasSinTitulo++;
-        return;
-      }
+      // Solo contar si bmatid NO es nulo
+      if (isBmatidNulo(row)) return;
       
       const fechaVal = row[fechaCol];
       const fecha = parseFechaDDMMYY(fechaVal);
       
-      if (fecha) {
-        filasConFecha++;
-        // Verificar que sea del mismo mes y año
-        if (fecha.getMonth() === mesReferencia && fecha.getFullYear() === anioReferencia) {
-          const dia = fecha.getDate();
-          tocadasPorDia[dia] = (tocadasPorDia[dia] || 0) + 1;
-          totalTocadas++;
-        }
-      } else {
-        filasSinFecha++;
+      if (fecha && fecha.getMonth() === mesReferencia && fecha.getFullYear() === anioReferencia) {
+        const dia = fecha.getDate();
+        tocadasPorDia[dia] = (tocadasPorDia[dia] || 0) + 1;
+        totalTocadas++;
       }
     });
     
-    // Mostrar resumen detallado
-    console.log(`📊 Resumen de conteo:`);
-    console.log(`  ✅ Filas con fecha válida: ${filasConFecha}`);
-    console.log(`  ❌ Filas sin fecha válida: ${filasSinFecha}`);
-    console.log(`  ❌ Filas sin título: ${filasSinTitulo}`);
-    console.log(`  📊 Total tocadas: ${totalTocadas}`);
-    
-    // Mostrar días con tocadas
-    let diasConTocadas = 0;
-    for (let i = 1; i <= diasDelMes; i++) {
-      if (tocadasPorDia[i] > 0) diasConTocadas++;
-    }
-    console.log(`  📊 Días con tocadas: ${diasConTocadas} de ${diasDelMes}`);
+    console.log(`📊 Total tocadas: ${totalTocadas}`);
     console.log('📊 Tocadas por día:', tocadasPorDia);
-    
-  } else {
-    console.warn('⚠️ No se pudo calcular tocadas por día:');
-    if (!fechaCol) console.warn('  - Falta columna de fecha');
-    if (!tituloCol) console.warn('  - Falta columna de título');
-    if (mesReferencia === null) console.warn('  - No se encontró fecha de referencia');
   }
 
-  console.log('✅ Análisis Broadcast completado');
-
   // --- CÁLCULO DE ERRORES ---
-  console.log('\n📊 CALCULANDO ERRORES');
-  console.log('========================================');
-
+  console.log('\n📊 CALCULANDO ERRORES (HYBRID)');
+  
   // 1. Días sin tocadas
   let diasSinTocadas = 0;
-  let diasConTocadas = 0;
   if (mesReferencia !== null) {
     for (let i = 1; i <= diasDelMes; i++) {
-      if (tocadasPorDia[i] > 0) {
-        diasConTocadas++;
-      } else {
+      if (!tocadasPorDia[i] || tocadasPorDia[i] === 0) {
         diasSinTocadas++;
       }
     }
     console.log(`📊 Días sin tocadas: ${diasSinTocadas} de ${diasDelMes}`);
   }
 
-  // 2. Celdas vacías en Título pero con Label no vacío
-  let erroresLabelSinTitulo = 0;
-  let labelCol = null;
-
-  // Buscar columna de Sello (posibles nombres)
-  const posiblesLabel = ['Label', 'Sello', 'Labels', 'Sellos', 'label', 'sello'];
-  labelCol = colNames.find(c => posiblesLabel.includes(c) || /label|sello|tag/i.test(c));
-
-  if (labelCol) {
-    console.log(`📊 Columna de Label encontrada: ${labelCol}`);
-    
+  // 2. Tracks sin título - bmatid NO vacío y Track vacío
+  let erroresTrackSinTitulo = 0;
+  if (trackCol && bmatidCol) {
+    console.log(`📊 Calculando "Track sin título" (bmatid NO vacío, Track vacío)...`);
     data.forEach(row => {
-      const titulo = row[tituloCol];
-      const label = row[labelCol];
+      const bmatidVacio = isBmatidNulo(row);
+      const trackVacio = isTrackVacio(row);
       
-      // Verificar si Título está vacío/nulo
-      const tituloVacio = titulo === null || titulo === undefined || String(titulo).trim() === '';
-      // Verificar si Label NO está vacío
-      const labelNoVacio = label !== null && label !== undefined && String(label).trim() !== '';
-      
-      if (tituloVacio && labelNoVacio) {
-        erroresLabelSinTitulo++;
+      // Error: Track vacío PERO bmatid NO vacío
+      if (trackVacio && !bmatidVacio) {
+        erroresTrackSinTitulo++;
       }
     });
-    console.log(`📊 Celdas con Label pero sin Título: ${erroresLabelSinTitulo}`);
+    console.log(`📊 Tracks sin título: ${erroresTrackSinTitulo}`);
   } else {
-    console.warn('⚠️ No se encontró columna de Label para calcular errores');
+    if (!trackCol) console.warn('⚠️ No se encontró columna Track');
+    if (!bmatidCol) console.warn('⚠️ No se encontró columna bmatid');
   }
 
-  console.log('========================================');
+  console.log('✅ Análisis Hybrid completado');
 
   return {
+    // Indicadores principales
     tiempoEmision,
     tiempoAnalizado,
-    sumaMusica,
+    musicaAnalizada,
+    musicaPrimerPlano,
+    musicaBackground,
     musicaIdentificada,
-    musicaComercial,
-    fcfSum,
+    
+    // Porcentajes
     pctAnalizado,
-    pctMusica,
+    pctMusicaAnalizada,
+    pctMusicaPrimerPlano,
+    pctMusicaBackground,
     pctMusicaIdentificada,
-    pctMusicaComercial,
-    pctFCF,
+    
+    // Tocadas y errores
     tocadasPorDia: tocadasPorDia,
     diasDelMes: diasDelMes || 31,
     mesReferencia: mesReferencia,
     anioReferencia: anioReferencia,
     diasSinTocadas: diasSinTocadas,
-    erroresLabelSinTitulo: erroresLabelSinTitulo,
-    labelCol: labelCol,
+    erroresTrackSinTitulo: erroresTrackSinTitulo,
+    
     hasData: true
   };
 }
 
 // ===================================================================
-// 7. RENDERIZADO - OVERVIEW
+// 9. PROCESAR DATOS
+// ===================================================================
+function processExcelData(data, progressFill, loadingText, loadingEl) {
+  try {
+    const wb = XLSX.read(data, { type: 'array', cellDates: true });
+    const sheetName = wb.SheetNames[0];
+    const sheet = wb.Sheets[sheetName];
+    const jsonData = XLSX.utils.sheet_to_json(sheet, { defval: null });
+    
+    console.log('📊 Datos parseados:', jsonData.length, 'filas');
+    console.log('📋 Columnas:', Object.keys(jsonData[0] || {}));
+    
+    if (jsonData.length === 0) {
+      showToast('El archivo está vacío', 'error');
+      if (loadingEl) loadingEl.style.display = 'none';
+      isProcessing = false;
+      return;
+    }
+    
+    finishProcessing(jsonData, progressFill, loadingText, loadingEl);
+    
+  } catch (error) {
+    console.error('❌ Error parseando Excel:', error);
+    if (loadingEl) loadingEl.style.display = 'none';
+    showToast('Error al procesar Excel: ' + error.message, 'error');
+    isProcessing = false;
+  }
+}
+
+function processTSVData(text, progressFill, loadingText, loadingEl, ext) {
+  try {
+    console.log('📊 Procesando TSV...');
+    
+    let separator = '\t';
+    if (ext === '.txt') {
+      const firstLine = text.split('\n')[0] || '';
+      if (firstLine.includes('\t')) separator = '\t';
+      else if (firstLine.includes(';')) separator = ';';
+      else if (firstLine.includes(',')) separator = ',';
+    }
+    
+    console.log('📊 Separador detectado:', separator === '\t' ? 'TAB' : separator);
+    
+    const lines = text.split('\n').filter(line => line.trim() !== '');
+    
+    if (lines.length === 0) {
+      showToast('El archivo está vacío', 'error');
+      if (loadingEl) loadingEl.style.display = 'none';
+      isProcessing = false;
+      return;
+    }
+    
+    const headers = lines[0].split(separator).map(h => h.trim());
+    console.log('📋 Cabeceras:', headers);
+    
+    const jsonData = [];
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(separator).map(v => v.trim());
+      const row = {};
+      headers.forEach((header, idx) => {
+        row[header] = values[idx] !== undefined ? values[idx] : null;
+      });
+      jsonData.push(row);
+    }
+    
+    console.log('📊 Datos parseados:', jsonData.length, 'filas');
+    console.log('📋 Columnas:', Object.keys(jsonData[0] || {}));
+    
+    if (jsonData.length === 0) {
+      showToast('El archivo está vacío o no tiene datos válidos', 'error');
+      if (loadingEl) loadingEl.style.display = 'none';
+      isProcessing = false;
+      return;
+    }
+    
+    finishProcessing(jsonData, progressFill, loadingText, loadingEl);
+    
+  } catch (error) {
+    console.error('❌ Error parseando TSV:', error);
+    if (loadingEl) loadingEl.style.display = 'none';
+    showToast('Error al procesar TSV: ' + error.message, 'error');
+    isProcessing = false;
+  }
+}
+
+function finishProcessing(jsonData, progressFill, loadingText, loadingEl) {
+  try {
+    currentRawData = jsonData;
+    currentAnalysis = analyzeData(jsonData);
+    console.log('✅ Análisis Default completado');
+    
+    if (currentMode === 'broadcast') {
+      console.log('📊 Calculando análisis Broadcast...');
+      currentBroadcastData = analyzeBroadcastData(jsonData);
+      console.log('✅ Broadcast completado');
+    } else if (currentMode === 'hybrid') {
+      console.log('📊 Calculando análisis Hybrid...');
+      currentBroadcastData = analyzeHybridData(jsonData);
+      console.log('✅ Hybrid completado');
+    } else {
+      currentBroadcastData = null;
+    }
+    
+    if (progressFill) progressFill.style.width = '100%';
+    if (loadingText) loadingText.textContent = 'Análisis completo';
+    
+    setTimeout(() => {
+      if (loadingEl) loadingEl.style.display = 'none';
+      if (progressFill) progressFill.style.width = '0%';
+      updateNavVisibility();
+      navigateTo('overview');
+      showToast(`Analizadas ${jsonData.length} filas y ${Object.keys(jsonData[0] || {}).length} columnas`);
+      isProcessing = false;
+    }, 300);
+    
+  } catch (error) {
+    console.error('❌ Error en análisis:', error);
+    if (loadingEl) loadingEl.style.display = 'none';
+    showToast('Error en el análisis: ' + error.message, 'error');
+    isProcessing = false;
+  }
+}
+
+// ===================================================================
+// 10. CARGA DE ARCHIVOS
+// ===================================================================
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+
+console.log('🔍 Elementos de carga:');
+console.log('  drop-zone:', dropZone ? '✅ Encontrado' : '❌ No encontrado');
+console.log('  file-input:', fileInput ? '✅ Encontrado' : '❌ No encontrado');
+
+if (dropZone) {
+  // Drag & Drop events
+  dropZone.addEventListener('dragover', (e) => { 
+    e.preventDefault(); 
+    dropZone.classList.add('drag-over'); 
+  });
+  
+  dropZone.addEventListener('dragleave', () => { 
+    dropZone.classList.remove('drag-over'); 
+  });
+  
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    if (e.dataTransfer.files.length) {
+      console.log('📁 Archivo soltado:', e.dataTransfer.files[0].name);
+      handleFile(e.dataTransfer.files[0]);
+    }
+  });
+  
+  // === CLICK PARA ABRIR SELECTOR DE ARCHIVOS ===
+  dropZone.addEventListener('click', function(e) {
+    console.log('🖱️ Click en drop-zone');
+    // Evitar que el click se propague si se hizo clic en un hijo
+    if (e.target.closest('.drop-contenido') || e.target === this) {
+      if (fileInput) {
+        fileInput.click();
+        console.log('✅ fileInput.click() ejecutado');
+      } else {
+        console.error('❌ fileInput no encontrado');
+        // Fallback: crear input temporal
+        const tempInput = document.createElement('input');
+        tempInput.type = 'file';
+        tempInput.accept = '.xlsx,.xls,.csv,.tsv,.txt';
+        tempInput.onchange = function(e) {
+          if (this.files.length) {
+            handleFile(this.files[0]);
+          }
+        };
+        tempInput.click();
+      }
+    }
+  });
+  
+  // También permitir click en cualquier parte del drop-zone
+  dropZone.style.cursor = 'pointer';
+}
+
+if (fileInput) {
+  fileInput.addEventListener('change', function() {
+    if (this.files.length) {
+      console.log('📁 Archivo seleccionado desde input:', this.files[0].name);
+      handleFile(this.files[0]);
+    }
+  });
+  
+  // Resetear el input después de cada selección para permitir seleccionar el mismo archivo
+  fileInput.addEventListener('click', function() {
+    this.value = '';
+  });
+} else {
+  console.warn('⚠️ file-input no encontrado en el DOM');
+}
+
+function handleFile(file) {
+  if (isProcessing) {
+    showToast('Ya hay un proceso en ejecución', 'info');
+    return;
+  }
+  
+  const validExts = ['.xlsx', '.xls', '.csv', '.tsv', '.txt'];
+  const ext = '.' + file.name.split('.').pop().toLowerCase();
+  if (!validExts.includes(ext)) {
+    showToast('Formato no soportado. Usa .xlsx, .xls, .csv o .tsv', 'error');
+    return;
+  }
+
+  console.log('📁 Cargando archivo:', file.name);
+  currentFileName = file.name;
+  
+  const loading = document.getElementById('upload-loading');
+  const progressFill = document.getElementById('progress-fill');
+  const loadingText = document.getElementById('loading-text');
+  
+  if (loading) loading.style.display = 'block';
+  if (progressFill) progressFill.style.width = '10%';
+  if (loadingText) loadingText.textContent = 'Leyendo archivo...';
+
+  isProcessing = true;
+
+  const isExcel = ['.xlsx', '.xls'].includes(ext);
+  const isTSV = ['.tsv', '.txt'].includes(ext) || file.name.includes('.tsv');
+
+  if (isExcel) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      console.log('📖 Archivo Excel leído correctamente');
+      if (progressFill) progressFill.style.width = '50%';
+      if (loadingText) loadingText.textContent = 'Parseando Excel...';
+      processExcelData(e.target.result, progressFill, loadingText, loading);
+    };
+    reader.onerror = () => {
+      console.error('❌ Error leyendo archivo Excel');
+      if (loading) loading.style.display = 'none';
+      showToast('Error al leer el archivo Excel', 'error');
+      isProcessing = false;
+    };
+    reader.readAsArrayBuffer(file);
+  } else if (isTSV) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      console.log('📖 Archivo TSV leído correctamente');
+      if (progressFill) progressFill.style.width = '50%';
+      if (loadingText) loadingText.textContent = 'Parseando TSV...';
+      processTSVData(e.target.result, progressFill, loadingText, loading, ext);
+    };
+    reader.onerror = () => {
+      console.error('❌ Error leyendo archivo TSV');
+      if (loading) loading.style.display = 'none';
+      showToast('Error al leer el archivo', 'error');
+      isProcessing = false;
+    };
+    reader.readAsText(file);
+  } else {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      console.log('📖 Archivo CSV leído correctamente');
+      if (progressFill) progressFill.style.width = '50%';
+      if (loadingText) loadingText.textContent = 'Parseando CSV...';
+      processExcelData(e.target.result, progressFill, loadingText, loading);
+    };
+    reader.onerror = () => {
+      console.error('❌ Error leyendo archivo CSV');
+      if (loading) loading.style.display = 'none';
+      showToast('Error al leer el archivo CSV', 'error');
+      isProcessing = false;
+    };
+    reader.readAsArrayBuffer(file);
+  }
+}
+
+// ===================================================================
+// 11. RENDERIZADO - OVERVIEW
 // ===================================================================
 function renderOverview() {
-  // Cancelar cualquier renderizado pendiente
   if (renderTimeout) {
     clearTimeout(renderTimeout);
     renderTimeout = null;
@@ -766,9 +1265,7 @@ function renderOverview() {
   isProcessing = true;
   
   try {
-    // Destruir gráficos anteriores
     destroyAllCharts();
-    // Limpiar específicamente el chart de días
     if (chartInstances.weekday) {
       try { chartInstances.weekday.destroy(); } catch(e) {}
       chartInstances.weekday = null;
@@ -781,7 +1278,7 @@ function renderOverview() {
       subtitleEl.textContent = `${currentAnalysis.rowCount.toLocaleString('es')} filas · ${currentAnalysis.columnCount} columnas · ${new Date(currentAnalysis.timestamp).toLocaleString('es')}`;
     }
 
-    const isBroadcast = currentMode === 'broadcast' && currentBroadcastData && currentBroadcastData.hasData;
+    const isBroadcast = (currentMode === 'broadcast' || currentMode === 'hybrid') && currentBroadcastData && currentBroadcastData.hasData;
     
     const defaultCharts = document.getElementById('default-charts');
     const broadcastCharts = document.getElementById('broadcast-charts');
@@ -829,7 +1326,6 @@ function renderDefaultOverview() {
     </div>
   `).join('');
 
-  // Chart: Tipos de datos
   const ctxTypes = document.getElementById('chart-types');
   if (ctxTypes) {
     try {
@@ -854,7 +1350,6 @@ function renderDefaultOverview() {
     } catch (e) { console.warn('Chart error:', e); }
   }
 
-  // Tabla resumen
   const tbody = document.querySelector('#columns-summary-table tbody');
   if (tbody) {
     tbody.innerHTML = currentAnalysis.columns.map(col => {
@@ -873,27 +1368,18 @@ function renderDefaultOverview() {
 }
 
 // ===================================================================
-// 8. RENDERIZADO - BROADCAST
+// 12. RENDERIZADO - BROADCAST/HYBRID
 // ===================================================================
 function renderTocadasPorDia(bd) {
   const ctxWeekday = document.getElementById('chart-weekday');
-  if (!ctxWeekday) {
-    console.warn('⚠️ No se encontró el canvas chart-weekday');
-    return;
-  }
+  if (!ctxWeekday) return;
   
-  // Verificar que no haya un gráfico existente
   if (chartInstances.weekday) {
-    try {
-      chartInstances.weekday.destroy();
-      chartInstances.weekday = null;
-    } catch(e) {
-      console.warn('Error destruyendo gráfico anterior:', e);
-    }
+    try { chartInstances.weekday.destroy(); } catch(e) {}
+    chartInstances.weekday = null;
   }
   
   if (!bd || !bd.tocadasPorDia) {
-    console.warn('⚠️ No hay datos para el gráfico de días');
     ctxWeekday.style.display = 'none';
     return;
   }
@@ -965,13 +1451,13 @@ function renderTocadasPorDia(bd) {
       }
     });
     
-    // Actualizar el título del gráfico
     const chartTitle = document.querySelector('#broadcast-charts .card h3');
     if (chartTitle) {
       const mesNombre = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
       const mes = (bd.mesReferencia !== null && bd.mesReferencia !== undefined) ? mesNombre[bd.mesReferencia] : '';
       const anio = bd.anioReferencia || '';
-      chartTitle.innerHTML = `<i class="fas fa-calendar-day" style="margin-right:8px;"></i> Tocadas por Día - ${mes} ${anio}`.trim();
+      const modoLabel = currentMode === 'hybrid' ? 'Hybrid' : 'Broadcast';
+      chartTitle.innerHTML = `<i class="fas fa-calendar-day" style="margin-right:8px;"></i> Tocadas por Día - ${modoLabel} - ${mes} ${anio}`.trim();
     }
     
   } catch (e) {
@@ -982,81 +1468,140 @@ function renderTocadasPorDia(bd) {
 function renderBroadcastOverview() {
   const bd = currentBroadcastData;
   if (!bd) {
-    console.warn('⚠️ No hay datos Broadcast');
+    console.warn('⚠️ No hay datos Broadcast/Hybrid');
     return;
   }
+
+  const isHybrid = currentMode === 'hybrid';
+  const modoLabel = isHybrid ? 'Hybrid' : 'Broadcast';
+  console.log(`📊 Renderizando vista ${modoLabel}...`);
 
   // --- CARDS DE ERRORES ---
   const errorCards = document.getElementById('error-cards');
   if (errorCards) {
-    const errorStats = [
-      { icon: 'fa-clock', label: 'Tiempo de Emisión', value: formatDuration(bd.tiempoEmision), color: '#60a5fa' },
+    let diasSinTocadas = 0;
+    let diasDelMes = bd.diasDelMes || 31;
+    if (bd.tocadasPorDia) {
+      for (let i = 1; i <= diasDelMes; i++) {
+        if (!bd.tocadasPorDia[i] || bd.tocadasPorDia[i] === 0) {
+          diasSinTocadas++;
+        }
+      }
+    }
+    
+    let errorStats = [
+      { 
+        icon: 'fa-clock', 
+        label: 'Tiempo de Emisión', 
+        value: formatDuration(bd.tiempoEmision),
+        color: '#60a5fa',
+        bgColor: 'rgba(96,165,250,0.15)'
+      },
       { 
         icon: 'fa-calendar-times', 
         label: 'Días sin tocadas', 
-        value: `${bd.diasSinTocadas || 0} de ${bd.diasDelMes || 31}`,
-        color: bd.diasSinTocadas > 0 ? 'var(--danger)' : 'var(--accent)',
-        bgColor: bd.diasSinTocadas > 0 ? 'rgba(248,113,113,0.15)' : 'rgba(52,211,153,0.15)'
-      },
-      { 
+        value: `${diasSinTocadas} de ${diasDelMes}`,
+        color: diasSinTocadas > 0 ? 'var(--danger)' : 'var(--accent)',
+        bgColor: diasSinTocadas > 0 ? 'rgba(248,113,113,0.15)' : 'rgba(52,211,153,0.15)'
+      }
+    ];
+    
+    if (isHybrid) {
+      errorStats.push({
+        icon: 'fa-exclamation-triangle', 
+        label: 'Tracks sin título', 
+        value: (bd.erroresTrackSinTitulo || 0).toLocaleString('es'),
+        color: (bd.erroresTrackSinTitulo || 0) > 0 ? 'var(--warning)' : 'var(--accent)',
+        bgColor: (bd.erroresTrackSinTitulo || 0) > 0 ? 'rgba(251,191,36,0.15)' : 'rgba(52,211,153,0.15)'
+      });
+    } else {
+      errorStats.push({
         icon: 'fa-exclamation-triangle', 
         label: 'Track sin Título', 
         value: (bd.erroresLabelSinTitulo || 0).toLocaleString('es'),
         color: (bd.erroresLabelSinTitulo || 0) > 0 ? 'var(--warning)' : 'var(--accent)',
         bgColor: (bd.erroresLabelSinTitulo || 0) > 0 ? 'rgba(251,191,36,0.15)' : 'rgba(52,211,153,0.15)'
-      }
-    ];
+      });
+    }
 
     errorCards.innerHTML = errorStats.map(c => `
-      <div class="card stat-card" style="padding:20px; border-left: 3px solid ${c.color};">
+      <div class="card stat-card" style="padding:16px 20px; border-left: 3px solid ${c.color};">
         <div style="display:flex; align-items:center; gap:12px;">
           <div style="width:36px; height:36px; border-radius:8px; background:${c.bgColor}; display:flex; align-items:center; justify-content:center;">
             <i class="fas ${c.icon}" style="color:${c.color}; font-size:14px;"></i>
           </div>
           <div>
-            <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;">${c.label}</div>
-            <div class="mono" style="font-size:20px; font-weight:600; color:${c.color};">${c.value}</div>
+            <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; font-family:var(--font-mono);">${c.label}</div>
+            <div class="mono" style="font-size:18px; font-weight:600; color:${c.color};">${c.value}</div>
           </div>
         </div>
       </div>
     `).join('');
+    
+    errorCards.style.display = 'grid';
   }
 
+  // --- CARDS DE INDICADORES ---
   const statCards = document.getElementById('stat-cards');
   if (!statCards) return;
   
-  const stats = [
-    { icon: 'fa-chart-line', label: 'Tiempo Analizado', value: formatDuration(bd.tiempoAnalizado), color: 'var(--accent)' },
-    { icon: 'fa-music', label: 'Música y Música+Palabra', value: formatDuration(bd.sumaMusica), color: '#6ee7b7' },
-    { icon: 'fa-headphones', label: 'Música Identificada', value: formatDuration(bd.musicaIdentificada), color: '#93c5fd' },
-    { icon: 'fa-tag', label: 'Música Comercial', value: formatDuration(bd.musicaComercial), color: '#fde68a' },
-    { icon: 'fa-flag', label: 'FCFs', value: formatDuration(bd.fcfSum), color: '#f87171' }
-  ];
+  let stats = [];
+  
+  if (isHybrid) {
+    stats = [
+      { icon: 'fa-chart-line', label: 'Tiempo Analizado', value: formatDuration(bd.tiempoAnalizado), color: 'var(--accent)' },
+      { icon: 'fa-music', label: 'Música Analizada', value: formatDuration(bd.musicaAnalizada), color: '#6ee7b7' },
+      { icon: 'fa-headphones', label: 'Música Primer Plano', value: formatDuration(bd.musicaPrimerPlano), color: '#93c5fd' },
+      { icon: 'fa-volume-down', label: 'Música Background', value: formatDuration(bd.musicaBackground), color: '#a78bfa' },
+      { icon: 'fa-tag', label: 'Música Identificada', value: formatDuration(bd.musicaIdentificada), color: '#fde68a' }
+    ];
+  } else {
+    stats = [
+      { icon: 'fa-chart-line', label: 'Tiempo Analizado', value: formatDuration(bd.tiempoAnalizado), color: 'var(--accent)' },
+      { icon: 'fa-music', label: 'Música y Música+Palabra', value: formatDuration(bd.sumaMusica), color: '#6ee7b7' },
+      { icon: 'fa-headphones', label: 'Música Identificada', value: formatDuration(bd.musicaIdentificada), color: '#93c5fd' },
+      { icon: 'fa-tag', label: 'Música Comercial', value: formatDuration(bd.musicaComercial), color: '#fde68a' },
+      { icon: 'fa-flag', label: 'FCFs', value: formatDuration(bd.fcfSum), color: '#f87171' }
+    ];
+  }
 
   statCards.innerHTML = stats.map(c => `
-    <div class="card stat-card broadcast-stat" style="padding:20px; border-left-color: ${c.color};">
+    <div class="card stat-card broadcast-stat" style="padding:16px 20px; border-left: 3px solid ${c.color};">
       <div style="display:flex; align-items:center; gap:12px;">
         <div style="width:36px; height:36px; border-radius:8px; background:${c.color}15; display:flex; align-items:center; justify-content:center;">
           <i class="fas ${c.icon}" style="color:${c.color}; font-size:14px;"></i>
         </div>
         <div>
-          <div class="stat-label" style="font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;">${c.label}</div>
+          <div class="stat-label" style="font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; font-family:var(--font-mono);">${c.label}</div>
           <div class="stat-value mono" style="font-size:18px; font-weight:600; color:${c.color};">${c.value}</div>
         </div>
       </div>
     </div>
   `).join('');
 
-  // Porcentajes
+  // --- PORCENTAJES ---
   const broadcastStats = document.getElementById('broadcast-stats');
   if (broadcastStats) {
-    const pctStats = [
-      { label: '% Analizado', value: bd.pctAnalizado.toFixed(2) + '%', color: 'var(--accent)' },
-      { label: '% Música', value: bd.pctMusica.toFixed(2) + '%', color: '#6ee7b7' },
-      { label: '% Música Identificada', value: bd.pctMusicaIdentificada.toFixed(2) + '%', color: '#93c5fd' },
-      { label: '% Música Comercial', value: bd.pctMusicaComercial.toFixed(2) + '%', color: '#fde68a' },
-      { label: '% FCFs', value: bd.pctFCF.toFixed(2) + '%', color: '#f87171' }
-    ];
+    let pctStats = [];
+    
+    if (isHybrid) {
+      pctStats = [
+        { label: '% Analizado', value: bd.pctAnalizado.toFixed(2) + '%', color: 'var(--accent)' },
+        { label: '% Música Analizada', value: bd.pctMusicaAnalizada.toFixed(2) + '%', color: '#6ee7b7' },
+        { label: '% Música Primer Plano', value: bd.pctMusicaPrimerPlano.toFixed(2) + '%', color: '#93c5fd' },
+        { label: '% Música Background', value: bd.pctMusicaBackground.toFixed(2) + '%', color: '#a78bfa' },
+        { label: '% Música Identificada', value: bd.pctMusicaIdentificada.toFixed(2) + '%', color: '#fde68a' }
+      ];
+    } else {
+      pctStats = [
+        { label: '% Analizado', value: bd.pctAnalizado.toFixed(2) + '%', color: 'var(--accent)' },
+        { label: '% Música', value: bd.pctMusica.toFixed(2) + '%', color: '#6ee7b7' },
+        { label: '% Música Identificada', value: bd.pctMusicaIdentificada.toFixed(2) + '%', color: '#93c5fd' },
+        { label: '% Música Comercial', value: bd.pctMusicaComercial.toFixed(2) + '%', color: '#fde68a' },
+        { label: '% FCFs', value: bd.pctFCF.toFixed(2) + '%', color: '#f87171' }
+      ];
+    }
+
     broadcastStats.innerHTML = pctStats.map(s => `
       <div class="card" style="padding:16px; text-align:center;">
         <div style="font-size:24px; font-weight:700; color:${s.color};" class="mono">${s.value}</div>
@@ -1065,12 +1610,12 @@ function renderBroadcastOverview() {
     `).join('');
   }
 
-  // Gráfico de tocadas por día
+  // --- GRÁFICO ---
   renderTocadasPorDia(bd);
 
-  // Tabla resumen de columnas
+  // --- TABLA RESUMEN ---
   const tbody = document.querySelector('#columns-summary-table tbody');
-  if (tbody) {
+  if (tbody && currentAnalysis) {
     tbody.innerHTML = currentAnalysis.columns.map(col => {
       const a = currentAnalysis.columnAnalyses[col];
       const mainStat = a.type === 'numeric' ? formatNumber(a.mean) : (a.mode || '—');
@@ -1087,7 +1632,7 @@ function renderBroadcastOverview() {
 }
 
 // ===================================================================
-// 9. NAVEGACIÓN
+// 13. NAVEGACIÓN
 // ===================================================================
 function navigateTo(section) {
   if (isProcessing) {
@@ -1123,15 +1668,11 @@ function navigateTo(section) {
 
 function updateNavVisibility() {
   const hasData = !!currentAnalysis;
-  const isBroadcast = currentMode === 'broadcast';
+  const isBroadcast = currentMode === 'broadcast' || currentMode === 'hybrid';
   
-  // Tabs que solo se muestran en modo Default (cuando hay datos)
   const defaultOnlyTabs = ['columns', 'correlations', 'distributions'];
-  
-  // Tabs que se muestran en ambos modos (cuando hay datos)
   const commonTabs = ['overview', 'data'];
   
-  // Mostrar/ocultar tabs según modo
   commonTabs.forEach(id => {
     const el = document.getElementById('nav-' + id);
     if (el) el.style.display = hasData ? 'flex' : 'none';
@@ -1140,12 +1681,10 @@ function updateNavVisibility() {
   defaultOnlyTabs.forEach(id => {
     const el = document.getElementById('nav-' + id);
     if (el) {
-      // Mostrar solo si hay datos Y NO estamos en modo Broadcast
       el.style.display = (hasData && !isBroadcast) ? 'flex' : 'none';
     }
   });
   
-  // Comparar siempre visible si hay al menos 2 análisis guardados
   getAllAnalyses().then(all => {
     const el = document.getElementById('nav-compare');
     if (el) el.style.display = all.length >= 2 ? 'flex' : 'none';
@@ -1153,7 +1692,7 @@ function updateNavVisibility() {
 }
 
 // ===================================================================
-// 10. MODO - ACTUALIZADO
+// 14. MODO
 // ===================================================================
 function setMode(mode) {
   if (isProcessing) {
@@ -1175,12 +1714,12 @@ function setMode(mode) {
   
   const descriptions = {
     default: 'Análisis estándar con estadísticas generales',
-    broadcast: 'Análisis especializado para datos de emisiones de radio'
+    broadcast: 'Análisis especializado para datos de emisiones de radio',
+    hybrid: 'Análisis para datos Hybrid usando UTC Duration y bmatid'
   };
   const descEl = document.getElementById('mode-description');
   if (descEl) descEl.textContent = descriptions[mode] || '';
   
-  // Actualizar visibilidad de tabs según el modo
   updateNavVisibility();
   
   if (currentAnalysis && currentRawData) {
@@ -1188,6 +1727,10 @@ function setMode(mode) {
       console.log('📊 Recalculando análisis Broadcast...');
       currentBroadcastData = analyzeBroadcastData(currentRawData);
       console.log('✅ Broadcast recalculado');
+    } else if (mode === 'hybrid') {
+      console.log('📊 Recalculando análisis Hybrid...');
+      currentBroadcastData = analyzeHybridData(currentRawData);
+      console.log('✅ Hybrid recalculado');
     } else {
       currentBroadcastData = null;
     }
@@ -1198,124 +1741,7 @@ function setMode(mode) {
 }
 
 // ===================================================================
-// 11. CARGA DE ARCHIVOS
-// ===================================================================
-const dropZone = document.getElementById('drop-zone');
-const fileInput = document.getElementById('file-input');
-
-if (dropZone) {
-  dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-  dropZone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    dropZone.classList.remove('drag-over');
-    if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
-  });
-}
-
-if (fileInput) {
-  fileInput.addEventListener('change', () => {
-    if (fileInput.files.length) handleFile(fileInput.files[0]);
-  });
-}
-
-function handleFile(file) {
-  if (isProcessing) {
-    showToast('Ya hay un proceso en ejecución', 'info');
-    return;
-  }
-  
-  const validExts = ['.xlsx', '.xls', '.csv'];
-  const ext = '.' + file.name.split('.').pop().toLowerCase();
-  if (!validExts.includes(ext)) {
-    showToast('Formato no soportado. Usa .xlsx, .xls o .csv', 'error');
-    return;
-  }
-
-  console.log('📁 Cargando archivo:', file.name);
-  currentFileName = file.name;
-  
-  const loading = document.getElementById('upload-loading');
-  const progressFill = document.getElementById('progress-fill');
-  const loadingText = document.getElementById('loading-text');
-  
-  if (loading) loading.style.display = 'block';
-  if (progressFill) progressFill.style.width = '10%';
-  if (loadingText) loadingText.textContent = 'Leyendo archivo...';
-
-  isProcessing = true;
-
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    if (progressFill) progressFill.style.width = '50%';
-    if (loadingText) loadingText.textContent = 'Parseando contenido...';
-    setTimeout(() => processWorkbook(e.target.result, progressFill, loadingText, loading), 50);
-  };
-  reader.onerror = () => {
-    if (loading) loading.style.display = 'none';
-    showToast('Error al leer el archivo', 'error');
-    isProcessing = false;
-  };
-  reader.readAsArrayBuffer(file);
-}
-
-function processWorkbook(data, progressFill, loadingText, loadingEl) {
-  try {
-    const wb = XLSX.read(data, { type: 'array', cellDates: true });
-    const sheetName = wb.SheetNames[0];
-    const sheet = wb.Sheets[sheetName];
-    const jsonData = XLSX.utils.sheet_to_json(sheet, { defval: null });
-
-    if (jsonData.length === 0) {
-      if (loadingEl) loadingEl.style.display = 'none';
-      showToast('El archivo está vacío o no tiene datos válidos', 'error');
-      isProcessing = false;
-      return;
-    }
-
-    console.log('📊 Datos cargados:', jsonData.length, 'filas');
-    console.log('📋 Columnas:', Object.keys(jsonData[0]));
-
-    if (progressFill) progressFill.style.width = '70%';
-    if (loadingText) loadingText.textContent = 'Analizando datos...';
-
-    currentRawData = jsonData;
-
-    setTimeout(() => {
-      currentAnalysis = analyzeData(jsonData);
-      console.log('✅ Análisis Default completado');
-      
-      if (currentMode === 'broadcast') {
-        console.log('📊 Calculando análisis Broadcast...');
-        currentBroadcastData = analyzeBroadcastData(jsonData);
-        console.log('✅ Análisis Broadcast completado');
-      } else {
-        currentBroadcastData = null;
-      }
-      
-      if (progressFill) progressFill.style.width = '100%';
-      if (loadingText) loadingText.textContent = 'Análisis completo';
-
-      setTimeout(() => {
-        if (loadingEl) loadingEl.style.display = 'none';
-        if (progressFill) progressFill.style.width = '0%';
-        updateNavVisibility();
-        navigateTo('overview');
-        showToast(`Analizadas ${jsonData.length} filas y ${currentAnalysis.columnCount} columnas`);
-        isProcessing = false;
-      }, 300);
-    }, 100);
-
-  } catch (err) {
-    console.error('❌ Error procesando archivo:', err);
-    if (loadingEl) loadingEl.style.display = 'none';
-    showToast('Error al procesar: ' + err.message, 'error');
-    isProcessing = false;
-  }
-}
-
-// ===================================================================
-// 12. FUNCIONES RESTANTES (SIMPLIFICADAS)
+// 15. FUNCIONES DE HISTORIAL Y GUARDADO
 // ===================================================================
 function showSaveModal() {
   if (!currentAnalysis) { showToast('No hay datos para guardar', 'error'); return; }
@@ -1357,7 +1783,9 @@ async function loadSavedAnalysis(id) {
     btn.classList.toggle('active', btn.dataset.mode === currentMode);
   });
   const descEl = document.getElementById('mode-description');
-  if (descEl) descEl.textContent = currentMode === 'broadcast' ? 'Análisis especializado para datos de emisiones de radio' : 'Análisis estándar con estadísticas generales';
+  if (descEl) descEl.textContent = currentMode === 'broadcast' ? 'Análisis especializado para datos de emisiones de radio' : 
+                                    currentMode === 'hybrid' ? 'Análisis para datos Hybrid usando UTC Duration y bmatid' :
+                                    'Análisis estándar con estadísticas generales';
   
   updateNavVisibility();
   navigateTo('overview');
@@ -1417,7 +1845,9 @@ async function renderHistory() {
     list.innerHTML = all.map(a => {
       const analysis = a.analysis;
       const date = new Date(a.timestamp).toLocaleString('es');
-      const modeLabel = a.mode === 'broadcast' ? '📡 Broadcast' : '📊 Default';
+      const modeLabel = a.mode === 'broadcast' ? '📡 Broadcast' : 
+                        a.mode === 'hybrid' ? '🔬 Hybrid' : 
+                        '📊 Default';
       return `<div class="card" style="padding:20px; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
         <div style="flex:1; min-width:200px;">
           <div style="font-weight:600; font-size:15px; margin-bottom:4px;">${a.name}</div>
@@ -1494,6 +1924,9 @@ async function runComparison() {
   if (container) container.innerHTML = html;
 }
 
+// ===================================================================
+// 16. DATOS CRUDOS
+// ===================================================================
 function renderRawData() {
   if (!currentRawData) { showToast('No hay datos cargados', 'error'); return; }
   dataPage = 0;
@@ -1580,6 +2013,9 @@ function exportCurrentCSV() {
   showToast('CSV exportado correctamente');
 }
 
+// ===================================================================
+// 17. CORRELACIONES, DISTRIBUCIONES, COLUMNAS, LOGS
+// ===================================================================
 function renderCorrelations() {
   if (!currentAnalysis) return;
   destroyAllCharts();
@@ -1811,7 +2247,7 @@ function renderLogsView() {
 }
 
 // ===================================================================
-// 13. INICIALIZACIÓN
+// 18. INICIALIZACIÓN
 // ===================================================================
 (async function init() {
   console.log('🚀 Inicializando Broadcast...');
