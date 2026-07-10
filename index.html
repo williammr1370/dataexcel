@@ -96,7 +96,7 @@
     <section id="section-upload" class="section-enter">
       <div style="margin-bottom:32px;">
         <h1 style="font-size:28px; font-weight:700; margin-bottom:6px;">Analiza tu Excel</h1>
-        <p style="color:var(--text-secondary); font-size:15px;">Arrastra un archivo .xlsx o .xls para obtener estadísticas, distribuciones y correlaciones al instante.</p>
+        <p style="color:var(--text-secondary); font-size:15px;">Arrastra un archivo .xlsx, .xls, .csv o .tsv para obtener estadísticas, distribuciones y correlaciones al instante.</p>
       </div>
 
       <!-- Selector de modo -->
@@ -105,19 +105,20 @@
         <div class="mode-selector">
           <button class="mode-option active" data-mode="default" onclick="setMode('default')">Default</button>
           <button class="mode-option" data-mode="broadcast" onclick="setMode('broadcast')">Broadcast</button>
+          <button class="mode-option" data-mode="hybrid" onclick="setMode('hybrid')">Hybrid</button>
         </div>
         <span id="mode-description" style="font-size:12px; color:var(--text-muted);">Análisis estándar con estadísticas generales</span>
       </div>
 
       <!-- Drop zone -->
-      <div id="drop-zone" class="drop-zone" style="border-radius:16px; padding:64px 32px; text-align:center; cursor:pointer;" onclick="document.getElementById('file-input').click()">
-        <input type="file" id="file-input" accept=".xlsx,.xls,.csv" style="display:none;">
-        <div style="margin-bottom:20px;">
+      <div id="drop-zone" class="drop-zone" style="border-radius:16px; padding:64px 32px; text-align:center; cursor:pointer; position:relative; z-index:1;">
+        <input type="file" id="file-input" accept=".xlsx,.xls,.csv,.tsv,.txt" style="display:none;">
+        <div style="margin-bottom:20px; pointer-events:none;">
           <i class="fas fa-file-excel" style="font-size:48px; color:var(--accent); opacity:0.7;"></i>
         </div>
-        <div style="font-size:18px; font-weight:600; margin-bottom:8px; position:relative; z-index:1;">Suelta tu archivo aquí</div>
-        <div style="color:var(--text-muted); font-size:14px; position:relative; z-index:1;">o haz clic para seleccionar — soporta .xlsx, .xls y .csv</div>
-        <div style="margin-top:16px; display:flex; gap:16px; justify-content:center; position:relative; z-index:1;">
+        <div style="font-size:18px; font-weight:600; margin-bottom:8px; position:relative; z-index:1; pointer-events:none;">Suelta tu archivo aquí</div>
+        <div style="color:var(--text-muted); font-size:14px; position:relative; z-index:1; pointer-events:none;">o haz clic para seleccionar — soporta .xlsx, .xls, .csv y .tsv</div>
+        <div style="margin-top:16px; display:flex; gap:16px; justify-content:center; position:relative; z-index:1; pointer-events:none;">
           <span class="badge badge-numeric"><i class="fas fa-calculator" style="margin-right:4px;"></i> Estadísticas</span>
           <span class="badge badge-categorical"><i class="fas fa-tags" style="margin-right:4px;"></i> Categorías</span>
           <span class="badge badge-date"><i class="fas fa-link" style="margin-right:4px;"></i> Correlaciones</span>
@@ -155,16 +156,18 @@
         </div>
       </div>
 
+      <!-- Error cards (Broadcast/Hybrid) -->
+      <div id="error-cards" style="display:none; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:16px; margin-bottom:24px;"></div>
+
       <!-- Stat cards -->
-      <div id="error-cards" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:16px; margin-bottom:24px;"></div>
       <div id="stat-cards" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:16px; margin-bottom:32px;"></div>
 
-      <!-- Contenedor para gráficos Broadcast -->
+      <!-- Contenedor para gráficos Broadcast/Hybrid -->
       <div id="broadcast-charts" style="display:none; margin-bottom:32px;">
-        <div id="broadcast-stats" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:16px; margin-bottom:24px;"></div>
+        <div id="broadcast-stats" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:16px; margin-bottom:24px;"></div>
         <div class="card" style="padding:20px;">
           <h3 style="font-size:14px; font-weight:600; margin-bottom:16px; color:var(--text-secondary);">
-            <i class="fas fa-calendar-week" style="margin-right:8px;"></i> Tocadas por Día de la Semana
+            <i class="fas fa-calendar-day" style="margin-right:8px;"></i> Tocadas por Día
           </h3>
           <div class="chart-container" style="height:300px;"><canvas id="chart-weekday"></canvas></div>
         </div>
