@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DataLens — Análisis de Excel</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div id="toast-container" class="toast-container"></div>
+<div id="modal-root"></div>
+
+<!-- Layout principal -->
+<div style="display:flex; min-height:100vh; position:relative; z-index:1;">
+
+  <!-- Sidebar -->
+  <aside class="sidebar-desktop" style="width:260px; background:var(--bg-surface); border-right:1px solid var(--border); padding:24px 16px; position:fixed; top:0; bottom:0; left:0; z-index:10; display:flex; flex-direction:column;">
+    <!-- Logo -->
+    <div style="display:flex; align-items:center; gap:10px; padding:0 8px 24px; border-bottom:1px solid var(--border); margin-bottom:20px;">
+      <div style="width:32px; height:32px; background:linear-gradient(135deg, var(--accent-dim), var(--accent)); border-radius:8px; display:flex; align-items:center; justify-content:center;">
+        <i class="fas fa-chart-line" style="color:var(--bg-deep); font-size:14px;"></i>
+      </div>
+      <div>
+        <div style="font-weight:700; font-size:16px; color:var(--text-primary);">DataLens</div>
+        <div style="font-size:10px; color:var(--text-muted); letter-spacing:1px; text-transform:uppercase;">Excel Analyzer</div>
+      </div>
+    </div>
+
+    <!-- Navegación -->
+    <nav style="display:flex; flex-direction:column; gap:4px; flex:1;">
+      <div class="sidebar-item active" data-nav="upload" onclick="navigateTo('upload')">
+        <i class="fas fa-cloud-upload-alt" style="width:18px; text-align:center;"></i>
+        <span>Cargar Archivo</span>
+      </div>
+      <div class="sidebar-item" data-nav="overview" onclick="navigateTo('overview')" id="nav-overview" style="display:none;">
+        <i class="fas fa-tachometer-alt" style="width:18px; text-align:center;"></i>
+        <span>Vista General</span>
+      </div>
+      <div class="sidebar-item" data-nav="columns" onclick="navigateTo('columns')" id="nav-columns" style="display:none;">
+        <i class="fas fa-columns" style="width:18px; text-align:center;"></i>
+        <span>Análisis por Columna</span>
+      </div>
+      <div class="sidebar-item" data-nav="correlations" onclick="navigateTo('correlations')" id="nav-correlations" style="display:none;">
+        <i class="fas fa-project-diagram" style="width:18px; text-align:center;"></i>
+        <span>Correlaciones</span>
+      </div>
+      <div class="sidebar-item" data-nav="distributions" onclick="navigateTo('distributions')" id="nav-distributions" style="display:none;">
+        <i class="fas fa-chart-bar" style="width:18px; text-align:center;"></i>
+        <span>Distribuciones</span>
+      </div>
+      <div class="sidebar-item" data-nav="data" onclick="navigateTo('data')" id="nav-data" style="display:none;">
+        <i class="fas fa-table" style="width:18px; text-align:center;"></i>
+        <span>Datos Crudos</span>
+      </div>
+
+      <div style="margin-top:16px; padding:0 8px;">
+        <div style="font-size:10px; color:var(--text-muted); letter-spacing:1px; text-transform:uppercase; margin-bottom:8px;">Comparaciones</div>
+      </div>
+      <div class="sidebar-item" data-nav="history" onclick="navigateTo('history')">
+        <i class="fas fa-history" style="width:18px; text-align:center;"></i>
+        <span>Historial Guardado</span>
+      </div>
+      <div class="sidebar-item" data-nav="compare" onclick="navigateTo('compare')" id="nav-compare" style="display:none;">
+        <i class="fas fa-balance-scale" style="width:18px; text-align:center;"></i>
+        <span>Comparar Análisis</span>
+      </div>
+
+      <div style="margin-top:16px; padding:0 8px;">
+        <div style="font-size:10px; color:var(--text-muted); letter-spacing:1px; text-transform:uppercase; margin-bottom:8px;">Diagnóstico</div>
+      </div>
+      <div class="sidebar-item" data-nav="logs" onclick="navigateTo('logs')">
+        <i class="fas fa-file-alt" style="width:18px; text-align:center;"></i>
+        <span>Logs</span>
+      </div>
+    </nav>
+
+    <!-- Info DB -->
+    <div style="padding:12px; background:var(--bg-deep); border-radius:8px; border:1px solid var(--border);">
+      <div style="font-size:11px; color:var(--text-muted); margin-bottom:6px;">
+        <i class="fas fa-database" style="margin-right:4px;"></i> Almacenamiento local
+      </div>
+      <div id="db-stats" style="font-size:12px; color:var(--text-secondary);" class="mono">0 análisis guardados</div>
+    </div>
+  </aside>
+
+  <!-- Contenido principal -->
+  <main class="main-content" style="margin-left:260px; flex:1; padding:24px 32px; max-width:100%;">
+
+    <!-- Sección: Upload -->
+    <section id="section-upload" class="section-enter">
+      <div style="margin-bottom:32px;">
+        <h1 style="font-size:28px; font-weight:700; margin-bottom:6px;">Analiza tu Excel</h1>
+        <p style="color:var(--text-secondary); font-size:15px;">Arrastra un archivo .xlsx o .xls para obtener estadísticas, distribuciones y correlaciones al instante.</p>
+      </div>
+
+      <!-- Selector de modo -->
+      <div style="margin-bottom:24px; display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+        <span style="font-size:13px; color:var(--text-muted);">Modo de análisis:</span>
+        <div class="mode-selector">
+          <button class="mode-option active" data-mode="default" onclick="setMode('default')">Default</button>
+          <button class="mode-option" data-mode="broadcast" onclick="setMode('broadcast')">Broadcast</button>
+        </div>
+        <span id="mode-description" style="font-size:12px; color:var(--text-muted);">Análisis estándar con estadísticas generales</span>
+      </div>
+
+      <!-- Drop zone -->
+      <div id="drop-zone" class="drop-zone" style="border-radius:16px; padding:64px 32px; text-align:center; cursor:pointer;" onclick="document.getElementById('file-input').click()">
+        <input type="file" id="file-input" accept=".xlsx,.xls,.csv" style="display:none;">
+        <div style="margin-bottom:20px;">
+          <i class="fas fa-file-excel" style="font-size:48px; color:var(--accent); opacity:0.7;"></i>
+        </div>
+        <div style="font-size:18px; font-weight:600; margin-bottom:8px; position:relative; z-index:1;">Suelta tu archivo aquí</div>
+        <div style="color:var(--text-muted); font-size:14px; position:relative; z-index:1;">o haz clic para seleccionar — soporta .xlsx, .xls y .csv</div>
+        <div style="margin-top:16px; display:flex; gap:16px; justify-content:center; position:relative; z-index:1;">
+          <span class="badge badge-numeric"><i class="fas fa-calculator" style="margin-right:4px;"></i> Estadísticas</span>
+          <span class="badge badge-categorical"><i class="fas fa-tags" style="margin-right:4px;"></i> Categorías</span>
+          <span class="badge badge-date"><i class="fas fa-link" style="margin-right:4px;"></i> Correlaciones</span>
+        </div>
+      </div>
+
+      <!-- Loading -->
+      <div id="upload-loading" style="display:none; margin-top:24px;">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+          <div class="spinner"></div>
+          <span style="color:var(--text-secondary); font-size:14px;" id="loading-text">Procesando archivo...</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+      </div>
+
+      <!-- Historial rápido -->
+      <div id="quick-history" style="margin-top:40px; display:none;">
+        <h3 style="font-size:16px; font-weight:600; margin-bottom:16px; color:var(--text-secondary);">
+          <i class="fas fa-clock" style="margin-right:6px;"></i> Análisis recientes
+        </h3>
+        <div id="quick-history-list" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:12px;"></div>
+      </div>
+    </section>
+
+    <!-- Sección: Overview -->
+    <section id="section-overview" style="display:none;" class="section-enter">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; flex-wrap:wrap; gap:12px;">
+        <div>
+          <h2 style="font-size:24px; font-weight:700;" id="overview-title">Vista General</h2>
+          <p style="color:var(--text-muted); font-size:13px;" id="overview-subtitle"></p>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn-ghost" onclick="navigateTo('upload')"><i class="fas fa-plus" style="margin-right:4px;"></i> Nuevo</button>
+          <button class="btn-primary" onclick="showSaveModal()"><i class="fas fa-save" style="margin-right:4px;"></i> Guardar Análisis</button>
+        </div>
+      </div>
+
+      <!-- Stat cards -->
+      <div id="stat-cards" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:16px; margin-bottom:32px;"></div>
+
+      <!-- Contenedor para gráficos Broadcast -->
+      <div id="broadcast-charts" style="display:none; margin-bottom:32px;">
+        <div id="broadcast-stats" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:16px; margin-bottom:24px;"></div>
+        <div class="card" style="padding:20px;">
+          <h3 style="font-size:14px; font-weight:600; margin-bottom:16px; color:var(--text-secondary);">
+            <i class="fas fa-calendar-week" style="margin-right:8px;"></i> Tocadas por Día de la Semana
+          </h3>
+          <div class="chart-container" style="height:300px;"><canvas id="chart-weekday"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Gráficos principales (Default) -->
+      <div id="default-charts" style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:32px;">
+        <div class="card" style="padding:20px;">
+          <h3 style="font-size:14px; font-weight:600; margin-bottom:16px; color:var(--text-secondary);">Tipos de Datos Detectados</h3>
+          <div class="chart-container"><canvas id="chart-types"></canvas></div>
+        </div>
+        <div class="card" style="padding:20px;">
+          <h3 style="font-size:14px; font-weight:600; margin-bottom:16px; color:var(--text-secondary);">Valores Nulos por Columna</h3>
+          <div class="chart-container"><canvas id="chart-nulls"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Resumen de columnas -->
+      <div class="card" style="padding:20px;">
+        <h3 style="font-size:14px; font-weight:600; margin-bottom:16px; color:var(--text-secondary);">Resumen de Columnas</h3>
+        <div style="overflow-x:auto;">
+          <table class="data-table" id="columns-summary-table">
+            <thead>
+              <tr>
+                <th>Columna</th>
+                <th>Tipo</th>
+                <th>Únicos</th>
+                <th>Nulos</th>
+                <th>% Nulos</th>
+                <th>Media / Moda</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sección: Columnas -->
+    <section id="section-columns" style="display:none;" class="section-enter">
+      <div style="margin-bottom:24px;">
+        <h2 style="font-size:24px; font-weight:700;">Análisis por Columna</h2>
+        <p style="color:var(--text-muted); font-size:13px;">Estadísticas detalladas de cada columna numérica y categórica.</p>
+      </div>
+      <div id="column-details"></div>
+    </section>
+
+    <!-- Sección: Correlaciones -->
+    <section id="section-correlations" style="display:none;" class="section-enter">
+      <div style="margin-bottom:24px;">
+        <h2 style="font-size:24px; font-weight:700;">Mapa de Correlaciones</h2>
+        <p style="color:var(--text-muted); font-size:13px;">Correlación de Pearson entre columnas numéricas.</p>
+      </div>
+      <div class="card" style="padding:20px; overflow-x:auto;" id="correlation-container">
+        <p style="color:var(--text-muted); text-align:center; padding:40px;">No hay columnas numéricas suficientes para calcular correlaciones.</p>
+      </div>
+    </section>
+
+    <!-- Sección: Distribuciones -->
+    <section id="section-distributions" style="display:none;" class="section-enter">
+      <div style="margin-bottom:24px;">
+        <h2 style="font-size:24px; font-weight:700;">Distribuciones</h2>
+        <p style="color:var(--text-muted); font-size:13px;">Histogramas para numéricas, frecuencia para categóricas.</p>
+      </div>
+      <div id="distribution-charts" style="display:grid; grid-template-columns:1fr 1fr; gap:16px;"></div>
+    </section>
+
+    <!-- Sección: Datos crudos -->
+    <section id="section-data" style="display:none;" class="section-enter">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; flex-wrap:wrap; gap:12px;">
+        <div>
+          <h2 style="font-size:24px; font-weight:700;">Datos Crudos</h2>
+          <p style="color:var(--text-muted); font-size:13px;" id="raw-data-info"></p>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input type="text" class="input-field" placeholder="Buscar en datos..." id="data-search" oninput="filterDataTable()" style="width:220px;">
+          <button class="btn-ghost" onclick="exportCurrentCSV()"><i class="fas fa-download" style="margin-right:4px;"></i> CSV</button>
+        </div>
+      </div>
+      <div class="card" style="overflow:auto; max-height:70vh;">
+        <table class="data-table" id="raw-data-table">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div id="data-pagination" style="display:flex; justify-content:center; gap:8px; margin-top:16px;"></div>
+    </section>
+
+    <!-- Sección: Historial -->
+    <section id="section-history" style="display:none;" class="section-enter">
+      <div style="margin-bottom:24px;">
+        <h2 style="font-size:24px; font-weight:700;">Historial de Análisis</h2>
+        <p style="color:var(--text-muted); font-size:13px;">Todos los análisis guardados en tu almacenamiento local.</p>
+      </div>
+      <div id="history-list"></div>
+      <div id="history-empty" style="text-align:center; padding:60px; color:var(--text-muted);">
+        <i class="fas fa-inbox" style="font-size:40px; margin-bottom:16px; opacity:0.3;"></i>
+        <p>No hay análisis guardados aún.</p>
+        <p style="font-size:13px; margin-top:4px;">Carga un archivo y guarda el análisis para verlo aquí.</p>
+      </div>
+    </section>
+
+    <!-- Sección: Comparar -->
+    <section id="section-compare" style="display:none;" class="section-enter">
+      <div style="margin-bottom:24px;">
+        <h2 style="font-size:24px; font-weight:700;">Comparar Análisis</h2>
+        <p style="color:var(--text-muted); font-size:13px;">Selecciona dos análisis para ver las diferencias.</p>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px;">
+        <div>
+          <label style="font-size:12px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:6px;">Análisis A</label>
+          <select class="input-field" id="compare-a" onchange="runComparison()"></select>
+        </div>
+        <div>
+          <label style="font-size:12px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:6px;">Análisis B</label>
+          <select class="input-field" id="compare-b" onchange="runComparison()"></select>
+        </div>
+      </div>
+      <div id="comparison-result"></div>
+    </section>
+
+    <!-- Sección: Logs -->
+    <section id="section-logs" style="display:none;" class="section-enter">
+      <div style="margin-bottom:24px;">
+        <h2 style="font-size:24px; font-weight:700;">Logs de Análisis</h2>
+        <p style="color:var(--text-muted); font-size:13px;">Historial de logs generados durante los análisis. Útil para depurar problemas con los datos.</p>
+      </div>
+      <div id="logs-container"></div>
+    </section>
+
+  </main>
+</div>
+
+<!-- Script único -->
+<script src="js/app.js"></script>
+</body>
+</html>
