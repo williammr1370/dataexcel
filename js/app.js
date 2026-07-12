@@ -187,7 +187,46 @@ async function saveAnalysis(name, fileName, analysis, mode, broadcastData) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, 'readwrite');
     const store = tx.objectStore(STORE_NAME);
-    const record = { name, fileName, timestamp: Date.now(), analysis, mode: mode || 'default', broadcastData: broadcastData || null };
+    const record = { 
+      name, 
+      fileName, 
+      timestamp: Date.now(), 
+      analysis, 
+      mode: mode || 'default', 
+      broadcastData: broadcastData || null,
+      // Guardar también los indicadores de las cards para comparación
+      indicators: mode === 'hybrid' ? {
+        tiempoEmision: broadcastData?.tiempoEmision || 0,
+        tiempoAnalizado: broadcastData?.tiempoAnalizado || 0,
+        musicaAnalizada: broadcastData?.musicaAnalizada || 0,
+        musicaPrimerPlano: broadcastData?.musicaPrimerPlano || 0,
+        musicaBackground: broadcastData?.musicaBackground || 0,
+        musicaIdentificada: broadcastData?.musicaIdentificada || 0,
+        diasSinTocadas: broadcastData?.diasSinTocadas || 0,
+        erroresTrackSinTitulo: broadcastData?.erroresTrackSinTitulo || 0,
+        pctAnalizado: broadcastData?.pctAnalizado || 0,
+        pctMusicaAnalizada: broadcastData?.pctMusicaAnalizada || 0,
+        pctMusicaPrimerPlano: broadcastData?.pctMusicaPrimerPlano || 0,
+        pctMusicaBackground: broadcastData?.pctMusicaBackground || 0,
+        pctMusicaIdentificada: broadcastData?.pctMusicaIdentificada || 0,
+        diasDelMes: broadcastData?.diasDelMes || 31
+      } : (mode === 'broadcast' ? {
+        tiempoEmision: broadcastData?.tiempoEmision || 0,
+        tiempoAnalizado: broadcastData?.tiempoAnalizado || 0,
+        sumaMusica: broadcastData?.sumaMusica || 0,
+        musicaIdentificada: broadcastData?.musicaIdentificada || 0,
+        musicaComercial: broadcastData?.musicaComercial || 0,
+        fcfSum: broadcastData?.fcfSum || 0,
+        diasSinTocadas: broadcastData?.diasSinTocadas || 0,
+        erroresLabelSinTitulo: broadcastData?.erroresLabelSinTitulo || 0,
+        pctAnalizado: broadcastData?.pctAnalizado || 0,
+        pctMusica: broadcastData?.pctMusica || 0,
+        pctMusicaIdentificada: broadcastData?.pctMusicaIdentificada || 0,
+        pctMusicaComercial: broadcastData?.pctMusicaComercial || 0,
+        pctFCF: broadcastData?.pctFCF || 0,
+        diasDelMes: broadcastData?.diasDelMes || 31
+      } : null)
+    };
     const req = store.add(record);
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -1307,7 +1346,7 @@ function renderDefaultOverview() {
     { icon: 'fa-table', label: 'Filas', value: currentAnalysis.rowCount.toLocaleString('es'), color: 'var(--accent)' },
     { icon: 'fa-columns', label: 'Columnas', value: currentAnalysis.columnCount, color: '#60a5fa' },
     { icon: 'fa-calculator', label: 'Numéricas', value: currentAnalysis.typeCounts.numeric, color: '#93c5fd' },
-    { icon: 'fa-tags', label: 'Categóricas', value: currentAnalysis.typeCounts.categorical, color: '#fde68a' },
+    { icon: 'fa-tags', label: 'Categóricas', value: currentAnalysis.typeCounts.categorical, color: '#fb923c' },
     { icon: 'fa-calendar', label: 'Fechas', value: currentAnalysis.typeCounts.date, color: '#6ee7b7' },
     { icon: 'fa-exclamation-triangle', label: 'Nulos', value: `${currentAnalysis.totalNulls.toLocaleString('es')} (${currentAnalysis.nullPercentage}%)`, color: parseFloat(currentAnalysis.nullPercentage) > 10 ? 'var(--danger)' : 'var(--warning)' }
   ];
@@ -1553,14 +1592,14 @@ function renderBroadcastOverview() {
       { icon: 'fa-music', label: 'Música Analizada', value: formatDuration(bd.musicaAnalizada), color: '#6ee7b7' },
       { icon: 'fa-headphones', label: 'Música Primer Plano', value: formatDuration(bd.musicaPrimerPlano), color: '#93c5fd' },
       { icon: 'fa-volume-down', label: 'Música Background', value: formatDuration(bd.musicaBackground), color: '#a78bfa' },
-      { icon: 'fa-tag', label: 'Música Identificada', value: formatDuration(bd.musicaIdentificada), color: '#fde68a' }
+      { icon: 'fa-tag', label: 'Música Identificada', value: formatDuration(bd.musicaIdentificada), color: '#fb923c' }
     ];
   } else {
     stats = [
       { icon: 'fa-chart-line', label: 'Tiempo Analizado', value: formatDuration(bd.tiempoAnalizado), color: 'var(--accent)' },
       { icon: 'fa-music', label: 'Música y Música+Palabra', value: formatDuration(bd.sumaMusica), color: '#6ee7b7' },
       { icon: 'fa-headphones', label: 'Música Identificada', value: formatDuration(bd.musicaIdentificada), color: '#93c5fd' },
-      { icon: 'fa-tag', label: 'Música Comercial', value: formatDuration(bd.musicaComercial), color: '#fde68a' },
+      { icon: 'fa-tag', label: 'Música Comercial', value: formatDuration(bd.musicaComercial), color: '#fb923c' },
       { icon: 'fa-flag', label: 'FCFs', value: formatDuration(bd.fcfSum), color: '#f87171' }
     ];
   }
@@ -1590,14 +1629,14 @@ function renderBroadcastOverview() {
         { label: '% Música Analizada', value: bd.pctMusicaAnalizada.toFixed(2) + '%', color: '#6ee7b7' },
         { label: '% Música Primer Plano', value: bd.pctMusicaPrimerPlano.toFixed(2) + '%', color: '#93c5fd' },
         { label: '% Música Background', value: bd.pctMusicaBackground.toFixed(2) + '%', color: '#a78bfa' },
-        { label: '% Música Identificada', value: bd.pctMusicaIdentificada.toFixed(2) + '%', color: '#fde68a' }
+        { label: '% Música Identificada', value: bd.pctMusicaIdentificada.toFixed(2) + '%', color: '#fb923c' }
       ];
     } else {
       pctStats = [
         { label: '% Analizado', value: bd.pctAnalizado.toFixed(2) + '%', color: 'var(--accent)' },
         { label: '% Música', value: bd.pctMusica.toFixed(2) + '%', color: '#6ee7b7' },
         { label: '% Música Identificada', value: bd.pctMusicaIdentificada.toFixed(2) + '%', color: '#93c5fd' },
-        { label: '% Música Comercial', value: bd.pctMusicaComercial.toFixed(2) + '%', color: '#fde68a' },
+        { label: '% Música Comercial', value: bd.pctMusicaComercial.toFixed(2) + '%', color: '#fb923c' },
         { label: '% FCFs', value: bd.pctFCF.toFixed(2) + '%', color: '#f87171' }
       ];
     }
@@ -1714,8 +1753,8 @@ function setMode(mode) {
   
   const descriptions = {
     default: 'Análisis estándar con estadísticas generales',
-    broadcast: 'Análisis para datos de emisiones de radios de España ',
-    hybrid: 'Análisis para datos de archivos Hybrid'
+    broadcast: 'Análisis especializado para datos de emisiones de radio',
+    hybrid: 'Análisis para datos Hybrid usando UTC Duration y bmatid'
   };
   const descEl = document.getElementById('mode-description');
   if (descEl) descEl.textContent = descriptions[mode] || '';
@@ -1894,8 +1933,31 @@ async function runComparison() {
 
   const an = a.analysis;
   const bn = b.analysis;
+  const modeA = a.mode || 'default';
+  const modeB = b.mode || 'default';
+  const indicatorsA = a.indicators || {};
+  const indicatorsB = b.indicators || {};
 
-  let html = `<div class="card" style="padding:20px; margin-bottom:16px;">
+  let html = '';
+
+  // === CABECERA DE COMPARACIÓN ===
+  html += `
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px;">
+      <div class="card" style="padding:16px; text-align:center;">
+        <div style="font-weight:700; font-size:16px; color:var(--text-primary);">${a.name}</div>
+        <div style="font-size:12px; color:var(--text-muted);">${a.fileName} · ${modeA === 'hybrid' ? '🔬 Hybrid' : modeA === 'broadcast' ? '📡 Broadcast' : '📊 Default'}</div>
+        <div style="font-size:11px; color:var(--text-muted);">${new Date(a.timestamp).toLocaleString('es')}</div>
+      </div>
+      <div class="card" style="padding:16px; text-align:center;">
+        <div style="font-weight:700; font-size:16px; color:var(--text-primary);">${b.name}</div>
+        <div style="font-size:12px; color:var(--text-muted);">${b.fileName} · ${modeB === 'hybrid' ? '🔬 Hybrid' : modeB === 'broadcast' ? '📡 Broadcast' : '📊 Default'}</div>
+        <div style="font-size:11px; color:var(--text-muted);">${new Date(b.timestamp).toLocaleString('es')}</div>
+      </div>
+    </div>
+  `;
+
+  // === COMPARACIÓN GENERAL ===
+  html += `<div class="card" style="padding:20px; margin-bottom:16px;">
     <h3 style="font-size:14px; font-weight:600; margin-bottom:16px; color:var(--text-secondary);">Comparación General</h3>
     <table class="data-table">
       <thead><tr><th>Métrica</th><th>${a.name}</th><th>${b.name}</th><th>Diferencia</th></tr></thead>
@@ -1904,7 +1966,11 @@ async function runComparison() {
   const generalMetrics = [
     { label: 'Filas', keyA: an.rowCount, keyB: bn.rowCount },
     { label: 'Columnas', keyA: an.columnCount, keyB: bn.columnCount },
-    { label: 'Columnas numéricas', keyA: an.typeCounts.numeric, keyB: bn.typeCounts.numeric }
+    { label: 'Columnas numéricas', keyA: an.typeCounts.numeric, keyB: bn.typeCounts.numeric },
+    { label: 'Columnas categóricas', keyA: an.typeCounts.categorical, keyB: bn.typeCounts.categorical },
+    { label: 'Columnas fecha', keyA: an.typeCounts.date, keyB: bn.typeCounts.date },
+    { label: 'Total nulos', keyA: an.totalNulls, keyB: bn.totalNulls },
+    { label: '% Nulos', keyA: parseFloat(an.nullPercentage), keyB: parseFloat(bn.nullPercentage) }
   ];
 
   generalMetrics.forEach(m => {
@@ -1914,14 +1980,159 @@ async function runComparison() {
     const arrow = diff > 0 ? '↑' : diff < 0 ? '↓' : '→';
     html += `<tr>
       <td>${m.label}</td>
-      <td class="mono">${m.keyA.toLocaleString('es')}</td>
-      <td class="mono">${m.keyB.toLocaleString('es')}</td>
+      <td class="mono">${typeof m.keyA === 'number' && !Number.isInteger(m.keyA) ? m.keyA.toFixed(2) : (typeof m.keyA === 'number' ? m.keyA.toLocaleString('es') : m.keyA)}</td>
+      <td class="mono">${typeof m.keyB === 'number' && !Number.isInteger(m.keyB) ? m.keyB.toFixed(2) : (typeof m.keyB === 'number' ? m.keyB.toLocaleString('es') : m.keyB)}</td>
       <td class="mono ${cls}">${arrow} ${diffStr}</td>
     </tr>`;
   });
 
   html += '</tbody></table></div>';
-  if (container) container.innerHTML = html;
+
+  // === INDICADORES ESPECÍFICOS SEGÚN MODO ===
+  
+  // Determinar qué modo mostrar
+  const isHybridA = modeA === 'hybrid';
+  const isHybridB = modeB === 'hybrid';
+  const isBroadcastA = modeA === 'broadcast';
+  const isBroadcastB = modeB === 'broadcast';
+
+  // Si ambos son Hybrid o ambos son Broadcast, mostrar todos los indicadores
+  if ((isHybridA && isHybridB) || (isBroadcastA && isBroadcastB)) {
+    const isHybrid = isHybridA;
+    
+    html += `<div class="card" style="padding:20px; margin-bottom:16px;">
+      <h3 style="font-size:14px; font-weight:600; margin-bottom:16px; color:var(--text-secondary);">
+        Indicadores ${isHybrid ? 'Hybrid' : 'Broadcast'}
+      </h3>
+      <table class="data-table">
+        <thead><tr><th>Indicador</th><th>${a.name}</th><th>${b.name}</th><th>Diferencia</th></tr></thead>
+        <tbody>`;
+
+    if (isHybrid) {
+      // Indicadores Hybrid
+      const hybridMetrics = [
+        { label: 'Tiempo de Emisión', keyA: indicatorsA.tiempoEmision || 0, keyB: indicatorsB.tiempoEmision || 0, format: 'duration' },
+        { label: 'Tiempo Analizado', keyA: indicatorsA.tiempoAnalizado || 0, keyB: indicatorsB.tiempoAnalizado || 0, format: 'duration' },
+        { label: 'Música Analizada', keyA: indicatorsA.musicaAnalizada || 0, keyB: indicatorsB.musicaAnalizada || 0, format: 'duration' },
+        { label: 'Música Primer Plano', keyA: indicatorsA.musicaPrimerPlano || 0, keyB: indicatorsB.musicaPrimerPlano || 0, format: 'duration' },
+        { label: 'Música Background', keyA: indicatorsA.musicaBackground || 0, keyB: indicatorsB.musicaBackground || 0, format: 'duration' },
+        { label: 'Música Identificada', keyA: indicatorsA.musicaIdentificada || 0, keyB: indicatorsB.musicaIdentificada || 0, format: 'duration' },
+        { label: '% Analizado', keyA: indicatorsA.pctAnalizado || 0, keyB: indicatorsB.pctAnalizado || 0, format: 'percent' },
+        { label: '% Música Analizada', keyA: indicatorsA.pctMusicaAnalizada || 0, keyB: indicatorsB.pctMusicaAnalizada || 0, format: 'percent' },
+        { label: '% Música Primer Plano', keyA: indicatorsA.pctMusicaPrimerPlano || 0, keyB: indicatorsB.pctMusicaPrimerPlano || 0, format: 'percent' },
+        { label: '% Música Background', keyA: indicatorsA.pctMusicaBackground || 0, keyB: indicatorsB.pctMusicaBackground || 0, format: 'percent' },
+        { label: '% Música Identificada', keyA: indicatorsA.pctMusicaIdentificada || 0, keyB: indicatorsB.pctMusicaIdentificada || 0, format: 'percent' },
+        { label: 'Días sin tocadas', keyA: indicatorsA.diasSinTocadas || 0, keyB: indicatorsB.diasSinTocadas || 0, format: 'number' },
+        { label: 'Tracks sin título', keyA: indicatorsA.erroresTrackSinTitulo || 0, keyB: indicatorsB.erroresTrackSinTitulo || 0, format: 'number' }
+      ];
+
+      hybridMetrics.forEach(m => {
+        const diff = m.keyB - m.keyA;
+        let valA, valB, diffStr;
+        
+        if (m.format === 'duration') {
+          valA = formatDuration(m.keyA);
+          valB = formatDuration(m.keyB);
+          diffStr = formatDuration(diff);
+        } else if (m.format === 'percent') {
+          valA = m.keyA.toFixed(2) + '%';
+          valB = m.keyB.toFixed(2) + '%';
+          diffStr = diff.toFixed(2) + '%';
+        } else {
+          valA = m.keyA.toLocaleString('es');
+          valB = m.keyB.toLocaleString('es');
+          diffStr = diff.toLocaleString('es');
+        }
+        
+        const cls = diff > 0 ? 'diff-negative' : diff < 0 ? 'diff-positive' : 'diff-neutral';
+        const arrow = diff > 0 ? '↑' : diff < 0 ? '↓' : '→';
+        html += `<tr>
+          <td>${m.label}</td>
+          <td class="mono">${valA}</td>
+          <td class="mono">${valB}</td>
+          <td class="mono ${cls}">${arrow} ${diffStr}</td>
+        </tr>`;
+      });
+
+    } else {
+      // Indicadores Broadcast
+      const broadcastMetrics = [
+        { label: 'Tiempo de Emisión', keyA: indicatorsA.tiempoEmision || 0, keyB: indicatorsB.tiempoEmision || 0, format: 'duration' },
+        { label: 'Tiempo Analizado', keyA: indicatorsA.tiempoAnalizado || 0, keyB: indicatorsB.tiempoAnalizado || 0, format: 'duration' },
+        { label: 'Música y Música+Palabra', keyA: indicatorsA.sumaMusica || 0, keyB: indicatorsB.sumaMusica || 0, format: 'duration' },
+        { label: 'Música Identificada', keyA: indicatorsA.musicaIdentificada || 0, keyB: indicatorsB.musicaIdentificada || 0, format: 'duration' },
+        { label: 'Música Comercial', keyA: indicatorsA.musicaComercial || 0, keyB: indicatorsB.musicaComercial || 0, format: 'duration' },
+        { label: 'FCFs', keyA: indicatorsA.fcfSum || 0, keyB: indicatorsB.fcfSum || 0, format: 'duration' },
+        { label: '% Analizado', keyA: indicatorsA.pctAnalizado || 0, keyB: indicatorsB.pctAnalizado || 0, format: 'percent' },
+        { label: '% Música', keyA: indicatorsA.pctMusica || 0, keyB: indicatorsB.pctMusica || 0, format: 'percent' },
+        { label: '% Música Identificada', keyA: indicatorsA.pctMusicaIdentificada || 0, keyB: indicatorsB.pctMusicaIdentificada || 0, format: 'percent' },
+        { label: '% Música Comercial', keyA: indicatorsA.pctMusicaComercial || 0, keyB: indicatorsB.pctMusicaComercial || 0, format: 'percent' },
+        { label: '% FCFs', keyA: indicatorsA.pctFCF || 0, keyB: indicatorsB.pctFCF || 0, format: 'percent' },
+        { label: 'Días sin tocadas', keyA: indicatorsA.diasSinTocadas || 0, keyB: indicatorsB.diasSinTocadas || 0, format: 'number' },
+        { label: 'Track sin Título', keyA: indicatorsA.erroresLabelSinTitulo || 0, keyB: indicatorsB.erroresLabelSinTitulo || 0, format: 'number' }
+      ];
+
+      broadcastMetrics.forEach(m => {
+        const diff = m.keyB - m.keyA;
+        let valA, valB, diffStr;
+        
+        if (m.format === 'duration') {
+          valA = formatDuration(m.keyA);
+          valB = formatDuration(m.keyB);
+          diffStr = formatDuration(diff);
+        } else if (m.format === 'percent') {
+          valA = m.keyA.toFixed(2) + '%';
+          valB = m.keyB.toFixed(2) + '%';
+          diffStr = diff.toFixed(2) + '%';
+        } else {
+          valA = m.keyA.toLocaleString('es');
+          valB = m.keyB.toLocaleString('es');
+          diffStr = diff.toLocaleString('es');
+        }
+        
+        const cls = diff > 0 ? 'diff-negative' : diff < 0 ? 'diff-positive' : 'diff-neutral';
+        const arrow = diff > 0 ? '↑' : diff < 0 ? '↓' : '→';
+        html += `<tr>
+          <td>${m.label}</td>
+          <td class="mono">${valA}</td>
+          <td class="mono">${valB}</td>
+          <td class="mono ${cls}">${arrow} ${diffStr}</td>
+        </tr>`;
+      });
+    }
+
+    html += '</tbody></table></div>';
+
+  } else {
+    // Modos diferentes - mostrar comparación limitada
+    html += `<div class="card" style="padding:20px; margin-bottom:16px;">
+      <h3 style="font-size:14px; font-weight:600; margin-bottom:16px; color:var(--text-secondary);">Modos diferentes - Comparación limitada</h3>
+      <p style="color:var(--text-muted); font-size:13px;">Análisis A: ${modeA === 'hybrid' ? '🔬 Hybrid' : modeA === 'broadcast' ? '📡 Broadcast' : '📊 Default'}</p>
+      <p style="color:var(--text-muted); font-size:13px;">Análisis B: ${modeB === 'hybrid' ? '🔬 Hybrid' : modeB === 'broadcast' ? '📡 Broadcast' : '📊 Default'}</p>
+      <p style="color:var(--text-muted); font-size:13px; margin-top:8px;">Para comparar todos los indicadores, selecciona análisis del mismo modo.</p>
+    </div>`;
+  }
+
+  // === COLUMNAS EXCLUSIVAS ===
+  const onlyA = an.columns.filter(c => !bn.columns.includes(c));
+  const onlyB = bn.columns.filter(c => !an.columns.includes(c));
+  if (onlyA.length > 0 || onlyB.length > 0) {
+    html += `<div class="card" style="padding:20px;">
+      <h3 style="font-size:14px; font-weight:600; margin-bottom:12px; color:var(--text-secondary);">Columnas No Compartidas</h3>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+        <div>
+          <div style="font-size:12px; color:var(--info); margin-bottom:8px; font-weight:600;">Solo en ${a.name} (${onlyA.length})</div>
+          ${onlyA.map(c => `<div class="mono" style="font-size:12px; padding:4px 0; color:var(--text-secondary);">${c}</div>`).join('') || '<div style="color:var(--text-muted); font-size:12px;">Ninguna</div>'}
+        </div>
+        <div>
+          <div style="font-size:12px; color:var(--warning); margin-bottom:8px; font-weight:600;">Solo en ${b.name} (${onlyB.length})</div>
+          ${onlyB.map(c => `<div class="mono" style="font-size:12px; padding:4px 0; color:var(--text-secondary);">${c}</div>`).join('') || '<div style="color:var(--text-muted); font-size:12px;">Ninguna</div>'}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  container.innerHTML = html;
 }
 
 // ===================================================================
