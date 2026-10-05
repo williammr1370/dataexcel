@@ -40,7 +40,11 @@ async function procesarArchivosCRP() {
   });
 
   try {
-    const response = await fetch('http://localhost:8000/api/procesar-excel', {
+    // CAMBIAR ESTO:
+    // const response = await fetch('http://localhost:8000/api/procesar-excel', { ... });
+
+    // POR ESTO (Ruta relativa directa):
+    const response = await fetch('/api/procesar-excel', {
       method: 'POST',
       body: formData,
     });
