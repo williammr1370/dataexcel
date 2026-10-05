@@ -136,17 +136,17 @@ async function procesarArchivosCRP() {
 
           const segundosDuration = parseDurationToSeconds(valDuration);
 
-          const esMusica = valMS.toLowerCase() === 'musica' || valMS.toLowerCase() === 'música' || valMS.toUpperCase() === 'M';
+          const esMusica = valMS.toLowerCase() === 'music' || valMS.toLowerCase() === 'music' || valMS.toUpperCase() === 'M';
           const esBmatIdVacio = valBmatId === '' || valBmatId === 'null' || valBmatId === 'undefined';
           const esFCF = valLabel.toUpperCase() === 'FCF';
 
           let colorAplicar = null;
 
-          // Regla 1: Verde -> duration > 0:01:30 (90s), M/S = musica, BmatId vacio
+          // Regla 1: Verde -> duration > 0:01:30 (90s), M/S = music, BmatId vacio
           if (segundosDuration > 90 && esMusica && esBmatIdVacio) {
             colorAplicar = fillVerde;
           }
-          // Regla 2: Naranja -> M/S = musica, Label = FCF
+          // Regla 2: Naranja -> M/S = music, Label = FCF
           else if (esMusica && esFCF) {
             colorAplicar = fillNaranja;
           }
