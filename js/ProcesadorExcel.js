@@ -1,8 +1,7 @@
-// Función auxiliar para convertir duraciones en formato "HH:MM:SS" o "MM:SS" a segundos
+// Función auxiliar para convertir duraciones a segundos
 function parseDurationToSeconds(val) {
   if (val === null || val === undefined) return 0;
   
-  // Si Excel lo leyó como objeto fecha/hora de JS
   if (val instanceof Date) {
     return val.getHours() * 3600 + val.getMinutes() * 60 + val.getSeconds();
   }
@@ -17,7 +16,6 @@ function parseDurationToSeconds(val) {
     return parts[0] * 60 + parts[1]; // MM:SS
   }
   
-  // En caso de recibir el número de días flotante propio de Excel (ej: 0.00104)
   const num = Number(val);
   if (!isNaN(num)) {
     return Math.round(num * 86400);
@@ -42,6 +40,16 @@ async function procesarArchivosCRP() {
     return;
   }
 
+  // Lista de nombres de columnas a eliminar (en minúsculas para comparación insensitive)
+  const columnasAEliminar = [
+    'epg title',
+    'epg type',
+    'epg date',
+    'epg start time',
+    'epg end time',
+    'epg duration'
+  ];
+
   btnProcesar.disabled = true;
   btnProcesar.style.opacity = '0.6';
   statusDiv.style.display = 'flex';
@@ -51,21 +59,23 @@ async function procesarArchivosCRP() {
     const workbookDestino = new ExcelJS.Workbook();
     const worksheetMaestra = workbookDestino.addWorksheet('CRP_Consolidado');
 
-    // Definición de colores pastel (ARGB)
+    // Estilos de relleno verde y naranja suaves (ARGB)
     const fillVerde = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: 'FFD9EAD3' } // Verde suave
+      fgColor: { argb: 'FFD9EAD3' }
     };
 
     const fillNaranja = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: 'FFFCE5CD' } // Naranja suave
+      fgColor: { argb: 'FFFCE5CD' }
     };
 
     let filaActualMaestra = 1;
-    let mapaColumnas = {}; // Guarda los índices de columna por nombre
+    let mapaColumnasOrigen = {}; // Para ubicar valores requeridos en la hoja de origen
+    let indicesIgnorarOrigen = new Set(); // Índices de columna a omitir al copiar
+    let MappingsColumnasLimpias = []; // Mapeo de columna origen -> columna destino
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -80,78 +90,99 @@ async function procesarArchivosCRP() {
       const worksheetOrigen = workbookOrigen.worksheets[0];
       if (!worksheetOrigen) continue;
 
-      // Copiar anchos de columna si es el primer archivo
-      if (i === 0) {
-        worksheetOrigen.columns?.forEach((col, colIdx) => {
-          if (col.width) {
-            worksheetMaestra.getColumn(colIdx + 1).width = col.width;
-          }
-        });
-      }
-
-      // Mapear encabezados de la fila 1 para ubicar "duration", "M/S", "BmatId", "Label", etc.
+      // 1. Escanear fila de encabezados para identificar columnas y crear el mapa de exclusión
       const primeraFila = worksheetOrigen.getRow(1);
-      mapaColumnas = {};
+      mapaColumnasOrigen = {};
+      indicesIgnorarOrigen.clear();
+      MappingsColumnasLimpias = [];
+
+      let colDestinoIdx = 1;
+
       primeraFila.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-        if (cell.value) {
-          const colName = String(cell.value).trim().toLowerCase();
-          mapaColumnas[colName] = colNumber;
+        const valHeader = String(cell.value || '').trim();
+        const headerLower = valHeader.toLowerCase();
+
+        // Guardar la posición de la columna de origen
+        if (valHeader) {
+          mapaColumnasOrigen[headerLower] = colNumber;
+        }
+
+        // Si la columna debe ser eliminada, guardamos su índice para ignorarla
+        if (columnasAEliminar.includes(headerLower)) {
+          indicesIgnorarOrigen.add(colNumber);
+        } else {
+          // Si no se elimina, creamos el mapeo [colOrigen -> colDestino]
+          MappingsColumnasLimpias.push({
+            origenIdx: colNumber,
+            destinoIdx: colDestinoIdx
+          });
+
+          // Copiar anchos de columna en el primer archivo
+          if (i === 0) {
+            const colOrigen = worksheetOrigen.getColumn(colNumber);
+            if (colOrigen && colOrigen.width) {
+              worksheetMaestra.getColumn(colDestinoIdx).width = colOrigen.width;
+            }
+          }
+
+          colDestinoIdx++;
         }
       });
 
-      // Recorrer filas del archivo actual
+      // 2. Recorrer filas del archivo actual
       worksheetOrigen.eachRow({ includeEmpty: false }, (row, rowNumber) => {
-        // Omitir la fila 1 en archivos posteriores para no duplicar encabezados
+        // Omitir encabezados en los archivos posteriores
         if (i > 0 && rowNumber === 1) {
           return;
         }
 
         const rowDestino = worksheetMaestra.getRow(filaActualMaestra);
 
-        // Copiar celdas y sus propiedades
-        row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-          const celdaDestino = rowDestino.getCell(colNumber);
+        // Copiar celdas omitiendo las columnas eliminadas
+        MappingsColumnasLimpias.forEach((mapping) => {
+          const cellOrigen = row.getCell(mapping.origenIdx);
+          const celdaDestino = rowDestino.getCell(mapping.destinoIdx);
 
-          if (cell.type === ExcelJS.ValueType.Hyperlink) {
+          if (cellOrigen.type === ExcelJS.ValueType.Hyperlink) {
             celdaDestino.value = {
-              text: cell.value.text || cell.value.hyperlink,
-              hyperlink: cell.value.hyperlink
+              text: cellOrigen.value.text || cellOrigen.value.hyperlink,
+              hyperlink: cellOrigen.value.hyperlink
             };
           } else {
-            celdaDestino.value = cell.value;
+            celdaDestino.value = cellOrigen.value;
           }
 
-          if (cell.font) {
-            celdaDestino.font = cell.font;
+          if (cellOrigen.font) {
+            celdaDestino.font = cellOrigen.font;
           }
         });
 
-        // Aplicar reglas de color si no es la fila de encabezado
+        // 3. Aplicar reglas de color condicional si no es la fila de encabezado
         if (rowNumber > 1) {
-          // Extraer valores de columnas requeridas
-          const valDuration = mapaColumnas['duration'] ? row.getCell(mapaColumnas['duration']).value : null;
-          const valMS = mapaColumnas['m/s'] ? String(row.getCell(mapaColumnas['m/s']).value || '').trim() : '';
-          const valBmatId = mapaColumnas['bmatid'] ? String(row.getCell(mapaColumnas['bmatid']).value || '').trim() : '';
-          const valLabel = mapaColumnas['label'] ? String(row.getCell(mapaColumnas['label']).value || '').trim() : '';
+          const valDuration = mapaColumnasOrigen['duration'] ? row.getCell(mapaColumnasOrigen['duration']).value : null;
+          const valMS = mapaColumnasOrigen['m/s'] ? String(row.getCell(mapaColumnasOrigen['m/s']).value || '').trim() : '';
+          const valBmatId = mapaColumnasOrigen['bmatid'] ? String(row.getCell(mapaColumnasOrigen['bmatid']).value || '').trim() : '';
+          const valLabel = mapaColumnasOrigen['label'] ? String(row.getCell(mapaColumnasOrigen['label']).value || '').trim() : '';
 
           const segundosDuration = parseDurationToSeconds(valDuration);
 
-          const esMusica = valMS.toLowerCase() === 'music' || valMS.toLowerCase() === 'music' || valMS.toUpperCase() === 'M';
+          // Condición corregida: M/S igual a "music"
+          const esMusic = valMS.toLowerCase() === 'music';
           const esBmatIdVacio = valBmatId === '' || valBmatId === 'null' || valBmatId === 'undefined';
           const esFCF = valLabel.toUpperCase() === 'FCF';
 
           let colorAplicar = null;
 
           // Regla 1: Verde -> duration > 0:01:30 (90s), M/S = music, BmatId vacio
-          if (segundosDuration > 90 && esMusica && esBmatIdVacio) {
+          if (segundosDuration > 90 && esMusic && esBmatIdVacio) {
             colorAplicar = fillVerde;
           }
           // Regla 2: Naranja -> M/S = music, Label = FCF
-          else if (esMusica && esFCF) {
+          else if (esMusic && esFCF) {
             colorAplicar = fillNaranja;
           }
 
-          // Aplicar el color a toda la fila si cumple alguna condición
+          // Aplicar color a toda la fila resultante
           if (colorAplicar) {
             rowDestino.eachCell({ includeEmpty: true }, (celda) => {
               celda.fill = colorAplicar;
