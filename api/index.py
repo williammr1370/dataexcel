@@ -22,29 +22,34 @@ async def procesar_excel(files: List[UploadFile] = File(...)):
         raise HTTPException(status_code=400, detail="No se enviaron archivos.")
 
     wb_destino = openpyxl.Workbook()
-    wb_destino.remove(wb_destino.active)
+    wb_destino.remove(wb_destino.active)  # Eliminar hoja inicial
 
     fill_verde = PatternFill(start_color="D9EAD3", end_color="D9EAD3", fill_type="solid")
 
     for file in files:
         try:
             contenido = await file.read()
-            wb_origen = openpyxl.load_workbook(io.BytesIO(contenido), data_only=False)
+            # Cargar en modo rápido
+            wb_origen = openpyxl.load_workbook(io.BytesIO(contenido), data_only=True)
 
             nombre_hoja = file.filename.replace(".xlsx", "").replace(".xls", "")[:30]
             ws_destino = wb_destino.create_sheet(title=nombre_hoja)
             ws_origen = wb_origen.active
 
-            for row in ws_origen.iter_rows():
+            for row in ws_origen.iter_rows(values_only=False):
                 for cell in row:
-                    nueva_celda = ws_destino.cell(row=cell.row, column=cell.column, value=cell.value)
-                    
-                    if cell.hyperlink:
-                        nueva_celda.hyperlink = cell.hyperlink.target
+                    if cell.value is not None:
+                        nueva_celda = ws_destino.cell(row=cell.row, column=cell.column, value=cell.value)
+                        
+                        # Conservar hipervínculos si existen
+                        if cell.hyperlink:
+                            nueva_celda.hyperlink = cell.hyperlink.target
 
-                    if cell.value and isinstance(cell.value, str):
-                        if "OK" in cell.value.upper() or "COMPLETADO" in cell.value.upper():
-                            nueva_celda.fill = fill_verde
+                        # Formato condicional
+                        if isinstance(cell.value, str):
+                            val_upper = cell.value.upper()
+                            if "OK" in val_upper or "COMPLETADO" in val_upper:
+                                nueva_celda.fill = fill_verde
 
         except Exception as e:
             raise HTTPException(

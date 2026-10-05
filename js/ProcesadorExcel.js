@@ -1,18 +1,3 @@
-document.addEventListener('DOMContentLoaded', () => {
-  const fileInput = document.getElementById('crp-file-input');
-  if (fileInput) {
-    fileInput.addEventListener('change', (e) => {
-      const files = Array.from(e.target.files);
-      const countDiv = document.getElementById('crp-file-count');
-      if (files.length > 0) {
-        countDiv.textContent = `Archivos seleccionados: ${files.length}`;
-      } else {
-        countDiv.textContent = '';
-      }
-    });
-  }
-});
-
 async function procesarArchivosCRP() {
   const fileInput = document.getElementById('crp-file-input');
   const btnProcesar = document.getElementById('crp-btn-procesar');
@@ -29,7 +14,6 @@ async function procesarArchivosCRP() {
     return;
   }
 
-  // Deshabilitar botón y mostrar estado de carga
   btnProcesar.disabled = true;
   btnProcesar.style.opacity = '0.6';
   statusDiv.style.display = 'flex';
@@ -40,21 +24,33 @@ async function procesarArchivosCRP() {
   });
 
   try {
-    // CAMBIAR ESTO:
-    // const response = await fetch('http://localhost:8000/api/procesar-excel', { ... });
-
-    // POR ESTO (Ruta relativa directa):
     const response = await fetch('/api/procesar-excel', {
       method: 'POST',
       body: formData,
     });
 
     if (!response.ok) {
-      const errData = await response.json();
-      throw new Error(errData.detail || 'Error en el procesamiento del servidor.');
+      // Manejar respuestas que no sean JSON (por ejemplo, errores 413 o 504 de Vercel)
+      const errorText = await response.text();
+      let mensajeError = 'Error al procesar los archivos.';
+
+      try {
+        const errJson = JSON.parse(errorText);
+        mensajeError = errJson.detail || mensajeError;
+      } catch (e) {
+        if (response.status === 413 || errorText.includes('Request Entity Too Large')) {
+          mensajeError = 'Los archivos seleccionados superan el límite de tamaño permitido por Vercel (4.5 MB en total). Intenta con menos archivos o más livianos.';
+        } else if (response.status === 504 || errorText.includes('Timeout')) {
+          mensajeError = 'El procesamiento tomó demasiado tiempo. Intenta subirlos de 2 en 2.';
+        } else {
+          mensajeError = `Error del servidor (${response.status}): ${errorText.substring(0, 150)}`;
+        }
+      }
+
+      throw new Error(mensajeError);
     }
 
-    // Obtener el nombre del archivo desde el encabezado Content-Disposition
+    // Obtener el nombre del archivo
     const contentDisposition = response.headers.get('Content-Disposition');
     let filename = 'CRP_procesado.xlsx';
     if (contentDisposition) {
@@ -62,7 +58,6 @@ async function procesarArchivosCRP() {
       if (match && match[1]) filename = match[1];
     }
 
-    // Descargar automáticamente el archivo retornado
     const blob = await response.blob();
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
