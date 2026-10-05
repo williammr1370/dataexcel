@@ -47,7 +47,11 @@ async function procesarArchivosCRP() {
     'epg date',
     'epg start time',
     'epg end time',
-    'epg duration'
+    'epg duration',
+    'UTC Start Time',
+    'UTC End Time',
+    'UTC Duration (s)',
+    'RAW'
   ];
 
   btnProcesar.disabled = true;
