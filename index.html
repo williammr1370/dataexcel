@@ -157,21 +157,34 @@
         <p style="color:var(--text-secondary); font-size:15px;">Selecciona múltiples archivos con formato <code>[keyname]_[periodo].xlsx</code> para unificarlos, colorear celdas condicionalmente y mantener hipervínculos.</p>
       </div>
 
+      <!-- DENTRO DE <section id="section-procesador"> -->
       <div class="card" style="padding:32px; max-width:640px;">
+        
+        <!-- 1. Entrada de archivos CRP unificados -->
         <div style="margin-bottom:20px;">
-          <label style="display:block; font-size:13px; font-weight:600; margin-bottom:8px; color:var(--text-secondary);">Archivos de Entrada (.xlsx):</label>
+          <label style="display:block; font-size:13px; font-weight:600; margin-bottom:8px; color:var(--text-secondary);">
+            Archivos CRP (.xlsx):
+          </label>
           <input type="file" id="crp-file-input" multiple accept=".xlsx" class="input-field" style="width:100%; padding:10px;">
+          <div id="crp-file-count" style="margin-top:4px; font-size:12px; color:var(--accent);" class="mono"></div>
         </div>
 
-        <div id="crp-file-count" style="margin-bottom:20px; font-size:14px; color:var(--accent);" class="mono"></div>
+        <!-- 2. NUEVO: Entrada para archivo TopTracks -->
+        <div style="margin-bottom:24px;">
+          <label style="display:block; font-size:13px; font-weight:600; margin-bottom:8px; color:var(--text-secondary);">
+            Archivo TopTracks (TopTracks_from_..._.xlsx):
+          </label>
+          <input type="file" id="toptracks-file-input" accept=".xlsx" class="input-field" style="width:100%; padding:10px;">
+          <div id="toptracks-file-name" style="margin-top:4px; font-size:12px; color:var(--accent);" class="mono"></div>
+        </div>
 
         <button id="crp-btn-procesar" onclick="procesarArchivosCRP()" class="btn-primary" style="width:100%; justify-content:center; padding:12px;">
-          <i class="fas fa-cogs" style="margin-right:8px;"></i> Unificar y Procesar
+          <i class="fas fa-cogs" style="margin-right:8px;"></i> Unificar, Combinar y Procesar
         </button>
 
         <div id="crp-status" style="margin-top:20px; display:none; align-items:center; gap:12px;">
           <div class="spinner"></div>
-          <span style="color:var(--text-secondary); font-size:14px;">Procesando y unificando archivos en el servidor FastAPI...</span>
+          <span style="color:var(--text-secondary); font-size:14px;">Procesando datos...</span>
         </div>
 
         <div id="crp-error" style="margin-top:20px; padding:12px; background:rgba(239, 68, 68, 0.1); border:1px solid #ef4444; border-radius:8px; color:#ef4444; font-size:14px; display:none;"></div>
